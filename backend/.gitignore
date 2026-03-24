@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+.venv/
+venv/
+
+# Environment
+.env
+
+# Mac
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Alembic
+alembic.ini
+migrations/versions/
+
+# Docker
+postgres_data/
+
+# Logs
+*.log

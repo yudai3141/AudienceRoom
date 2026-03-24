@@ -1,0 +1,24 @@
+# Mac
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Env
+.env
+
+# Virtual env
+.venv/
+
+# Node
+node_modules/
+
+# Docker
+postgres_data/
+
+# Logs
+*.log
+EOF
