@@ -288,6 +288,29 @@
               "type": "integer",
               "title": "User Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
           }
         ],
         "responses": {
@@ -296,11 +319,46 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PracticeSessionResponse"
-                  },
-                  "title": "Response List Practice Sessions Practice Sessions Get"
+                  "$ref": "#/components/schemas/PaginatedSessionListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/practice-sessions/{session_id}/detail": {
+      "get": {
+        "summary": "Get Practice Session Detail",
+        "operationId": "get_practice_session_detail_practice_sessions__session_id__detail_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeSessionDetailResponse"
                 }
               }
             }
@@ -404,6 +462,29 @@
             }
           }
         }
+      }
+    },
+    "/users/me/dashboard": {
+      "get": {
+        "summary": "Get Dashboard",
+        "operationId": "get_dashboard_users_me_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/session-participants": {
@@ -1096,6 +1177,44 @@
         ],
         "title": "AiCharacterResponse"
       },
+      "DashboardResponse": {
+        "properties": {
+          "total_sessions": {
+            "type": "integer",
+            "title": "Total Sessions"
+          },
+          "completed_sessions": {
+            "type": "integer",
+            "title": "Completed Sessions"
+          },
+          "average_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Score"
+          },
+          "recent_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/SessionListItem"
+            },
+            "type": "array",
+            "title": "Recent Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_sessions",
+          "completed_sessions",
+          "average_score",
+          "recent_sessions"
+        ],
+        "title": "DashboardResponse"
+      },
       "FeedbackMetricBulkCreateRequest": {
         "properties": {
           "metrics": {
@@ -1266,6 +1385,37 @@
         "title": "LoginRequest",
         "description": "Sent after Firebase client-side auth to register or retrieve the user."
       },
+      "PaginatedSessionListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "PaginatedSessionListResponse"
+      },
       "PracticeSessionCreateRequest": {
         "properties": {
           "user_id": {
@@ -1370,6 +1520,145 @@
           "participant_count"
         ],
         "title": "PracticeSessionCreateRequest"
+      },
+      "PracticeSessionDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "participant_count": {
+            "type": "integer",
+            "title": "Participant Count"
+          },
+          "feedback_enabled": {
+            "type": "boolean",
+            "title": "Feedback Enabled"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme"
+          },
+          "overall_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Score"
+          },
+          "feedback_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback Summary"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/SessionParticipantResponse"
+            },
+            "type": "array",
+            "title": "Participants",
+            "default": []
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMessageResponse"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionFeedbackNested"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "status",
+          "mode",
+          "participant_count",
+          "feedback_enabled",
+          "theme",
+          "overall_score",
+          "feedback_summary",
+          "started_at",
+          "ended_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PracticeSessionDetailResponse",
+        "description": "Full session detail: session + participants + messages + feedback."
       },
       "PracticeSessionResponse": {
         "properties": {
@@ -1621,6 +1910,70 @@
         ],
         "title": "SessionFeedbackCreateRequest"
       },
+      "SessionFeedbackNested": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "summary_title": {
+            "type": "string",
+            "title": "Summary Title"
+          },
+          "short_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Comment"
+          },
+          "positive_points": {
+            "title": "Positive Points"
+          },
+          "improvement_points": {
+            "title": "Improvement Points"
+          },
+          "closing_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closing Message"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackMetricResponse"
+            },
+            "type": "array",
+            "title": "Metrics",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "summary_title",
+          "short_comment",
+          "positive_points",
+          "improvement_points",
+          "closing_message",
+          "created_at"
+        ],
+        "title": "SessionFeedbackNested"
+      },
       "SessionFeedbackResponse": {
         "properties": {
           "id": {
@@ -1692,6 +2045,91 @@
           "updated_at"
         ],
         "title": "SessionFeedbackResponse"
+      },
+      "SessionListItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme"
+          },
+          "overall_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Score"
+          },
+          "has_feedback": {
+            "type": "boolean",
+            "title": "Has Feedback"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "mode",
+          "theme",
+          "overall_score",
+          "has_feedback",
+          "started_at",
+          "ended_at",
+          "created_at"
+        ],
+        "title": "SessionListItem",
+        "description": "Lightweight item for session history list."
       },
       "SessionMessageCreateRequest": {
         "properties": {
@@ -1884,6 +2322,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "ai_character": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiCharacterResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
