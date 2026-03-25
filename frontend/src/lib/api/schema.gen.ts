@@ -145,6 +145,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/practice-sessions/{session_id}/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Practice Session Detail */
+        get: operations["get_practice_session_detail_practice_sessions__session_id__detail_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/practice-sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -177,6 +194,23 @@ export interface paths {
         head?: never;
         /** Update Practice Session Status */
         patch: operations["update_practice_session_status_practice_sessions__session_id__status_patch"];
+        trace?: never;
+    };
+    "/users/me/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Dashboard */
+        get: operations["get_dashboard_users_me_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/session-participants": {
@@ -395,6 +429,17 @@ export interface components {
             /** Is Active */
             is_active: boolean;
         };
+        /** DashboardResponse */
+        DashboardResponse: {
+            /** Total Sessions */
+            total_sessions: number;
+            /** Completed Sessions */
+            completed_sessions: number;
+            /** Average Score */
+            average_score: number | null;
+            /** Recent Sessions */
+            recent_sessions: components["schemas"]["SessionListItem"][];
+        };
         /** FeedbackMetricBulkCreateRequest */
         FeedbackMetricBulkCreateRequest: {
             /** Metrics */
@@ -448,6 +493,17 @@ export interface components {
             /** Photo Url */
             photo_url?: string | null;
         };
+        /** PaginatedSessionListResponse */
+        PaginatedSessionListResponse: {
+            /** Items */
+            items: components["schemas"]["SessionListItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** PracticeSessionCreateRequest */
         PracticeSessionCreateRequest: {
             /** User Id */
@@ -475,6 +531,55 @@ export interface components {
             session_brief?: string | null;
             /** Target Context */
             target_context?: string | null;
+        };
+        /**
+         * PracticeSessionDetailResponse
+         * @description Full session detail: session + participants + messages + feedback.
+         */
+        PracticeSessionDetailResponse: {
+            /** Id */
+            id: number;
+            /** User Id */
+            user_id: number;
+            /** Status */
+            status: string;
+            /** Mode */
+            mode: string;
+            /** Participant Count */
+            participant_count: number;
+            /** Feedback Enabled */
+            feedback_enabled: boolean;
+            /** Theme */
+            theme: string | null;
+            /** Overall Score */
+            overall_score: number | null;
+            /** Feedback Summary */
+            feedback_summary: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Participants
+             * @default []
+             */
+            participants: components["schemas"]["SessionParticipantResponse"][];
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["SessionMessageResponse"][];
+            feedback?: components["schemas"]["SessionFeedbackNested"] | null;
         };
         /** PracticeSessionResponse */
         PracticeSessionResponse: {
@@ -545,6 +650,31 @@ export interface components {
             /** Closing Message */
             closing_message?: string | null;
         };
+        /** SessionFeedbackNested */
+        SessionFeedbackNested: {
+            /** Id */
+            id: number;
+            /** Summary Title */
+            summary_title: string;
+            /** Short Comment */
+            short_comment: string | null;
+            /** Positive Points */
+            positive_points: unknown;
+            /** Improvement Points */
+            improvement_points: unknown;
+            /** Closing Message */
+            closing_message: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Metrics
+             * @default []
+             */
+            metrics: components["schemas"]["FeedbackMetricResponse"][];
+        };
         /** SessionFeedbackResponse */
         SessionFeedbackResponse: {
             /** Id */
@@ -573,6 +703,33 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * SessionListItem
+         * @description Lightweight item for session history list.
+         */
+        SessionListItem: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Mode */
+            mode: string;
+            /** Theme */
+            theme: string | null;
+            /** Overall Score */
+            overall_score: number | null;
+            /** Has Feedback */
+            has_feedback: boolean;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** SessionMessageCreateRequest */
         SessionMessageCreateRequest: {
@@ -646,6 +803,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            ai_character?: components["schemas"]["AiCharacterResponse"] | null;
         };
         /** UserCreateRequest */
         UserCreateRequest: {
@@ -922,6 +1080,8 @@ export interface operations {
         parameters: {
             query: {
                 user_id: number;
+                limit?: number;
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -935,7 +1095,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PracticeSessionResponse"][];
+                    "application/json": components["schemas"]["PaginatedSessionListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -969,6 +1129,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PracticeSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_practice_session_detail_practice_sessions__session_id__detail_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeSessionDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1044,6 +1235,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dashboard_users_me_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardResponse"];
                 };
             };
         };

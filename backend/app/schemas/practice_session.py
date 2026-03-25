@@ -1,6 +1,11 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
+
+from app.schemas.feedback_metric import FeedbackMetricResponse
+from app.schemas.session_message import SessionMessageResponse
+from app.schemas.session_participant import SessionParticipantResponse
 
 
 class PracticeSessionCreateRequest(BaseModel):
@@ -43,3 +48,63 @@ class PracticeSessionResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SessionFeedbackNested(BaseModel):
+    id: int
+    summary_title: str
+    short_comment: str | None
+    positive_points: Any
+    improvement_points: Any
+    closing_message: str | None
+    created_at: datetime
+    metrics: list[FeedbackMetricResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
+class PracticeSessionDetailResponse(BaseModel):
+    """Full session detail: session + participants + messages + feedback."""
+    id: int
+    user_id: int
+    status: str
+    mode: str
+    participant_count: int
+    feedback_enabled: bool
+    theme: str | None
+    overall_score: int | None
+    feedback_summary: str | None
+    started_at: datetime | None
+    ended_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    participants: list[SessionParticipantResponse] = []
+    messages: list[SessionMessageResponse] = []
+    feedback: SessionFeedbackNested | None = None
+
+
+class SessionListItem(BaseModel):
+    """Lightweight item for session history list."""
+    id: int
+    status: str
+    mode: str
+    theme: str | None
+    overall_score: int | None
+    has_feedback: bool
+    started_at: datetime | None
+    ended_at: datetime | None
+    created_at: datetime
+
+
+class PaginatedSessionListResponse(BaseModel):
+    items: list[SessionListItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class DashboardResponse(BaseModel):
+    total_sessions: int
+    completed_sessions: int
+    average_score: float | None
+    recent_sessions: list[SessionListItem]

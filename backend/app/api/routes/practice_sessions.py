@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user
+from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.practice_session import (
+    DashboardResponse,
+    PaginatedSessionListResponse,
     PracticeSessionCreateRequest,
+    PracticeSessionDetailResponse,
     PracticeSessionResponse,
     PracticeSessionStatusUpdateRequest,
 )
@@ -39,14 +44,30 @@ def create_practice_session(
     return PracticeSessionResponse.model_validate(session)
 
 
-@router.get("/practice-sessions", response_model=list[PracticeSessionResponse])
+@router.get("/practice-sessions", response_model=PaginatedSessionListResponse)
 def list_practice_sessions(
     user_id: int = Query(...),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-) -> list[PracticeSessionResponse]:
+) -> PaginatedSessionListResponse:
     service = PracticeSessionService(db)
-    sessions = service.list_user_sessions(user_id)
-    return [PracticeSessionResponse.model_validate(s) for s in sessions]
+    return service.list_user_sessions_paginated(user_id, limit=limit, offset=offset)
+
+
+@router.get(
+    "/practice-sessions/{session_id}/detail",
+    response_model=PracticeSessionDetailResponse,
+)
+def get_practice_session_detail(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> PracticeSessionDetailResponse:
+    service = PracticeSessionService(db)
+    detail = service.get_session_detail(session_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="PracticeSession not found")
+    return detail
 
 
 @router.get(
@@ -78,3 +99,12 @@ def update_practice_session_status(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return PracticeSessionResponse.model_validate(session)
+
+
+@router.get("/users/me/dashboard", response_model=DashboardResponse)
+def get_dashboard(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DashboardResponse:
+    service = PracticeSessionService(db)
+    return service.get_dashboard(current_user.id)

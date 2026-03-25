@@ -138,7 +138,11 @@ class TestPracticeSessionsAPI:
 
         response = client.get(f"/practice-sessions?user_id={user_id}")
         assert response.status_code == 200
-        assert len(response.json()) == 2
+        data = response.json()
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        assert data["limit"] == 20
+        assert data["offset"] == 0
 
     def test_update_status_to_active(self, client: TestClient) -> None:
         user_id = _create_user(client)

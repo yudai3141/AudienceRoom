@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.ai_character import AiCharacterResponse
+
 
 class SessionParticipantCreateRequest(BaseModel):
     session_id: int
@@ -24,5 +26,6 @@ class SessionParticipantResponse(BaseModel):
     seat_index: int
     is_active: bool
     created_at: datetime
+    ai_character: AiCharacterResponse | None = None
 
     model_config = {"from_attributes": True}
