@@ -1,0 +1,64 @@
+name: OpenAPI Schema Check
+
+on:
+  push:
+    paths:
+      - "backend/app/**"
+      - "frontend/src/lib/api/**"
+      - "openapi.json"
+      - ".github/workflows/openapi-check.yml"
+  pull_request:
+    paths:
+      - "backend/app/**"
+      - "frontend/src/lib/api/**"
+      - "openapi.json"
+      - ".github/workflows/openapi-check.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Export OpenAPI spec
+        working-directory: backend
+        run: python -m scripts.export_openapi ../openapi.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Generate TypeScript types
+        working-directory: frontend
+        run: npm run generate:api
+
+      - name: Check for uncommitted changes
+        run: |
+          if ! git diff --exit-code openapi.json frontend/src/lib/api/schema.gen.ts; then
+            echo ""
+            echo "::error::OpenAPI spec or generated types are out of date."
+            echo "Run 'make generate-api' and commit the changes."
+            exit 1
+          fi
