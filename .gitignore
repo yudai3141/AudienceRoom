@@ -6,12 +6,16 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
+build/
+dist/
 
 # Env
 .env
 
 # Virtual env
 .venv/
+venv/
 
 # Node
 node_modules/
@@ -19,6 +23,12 @@ node_modules/
 # Docker
 postgres_data/
 
+# IDE
+.vscode/
+.idea/
+
 # Logs
 *.log
-EOF
+
+# pytest
+.pytest_cache/
