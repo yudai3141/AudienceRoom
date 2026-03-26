@@ -12,6 +12,14 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+const mockPost = vi.fn();
+
+vi.mock("@/lib/api/client", () => ({
+  api: {
+    POST: (...args: unknown[]) => mockPost(...args),
+  },
+}));
+
 const mockStream = {
   getTracks: () => [
     { stop: vi.fn(), enabled: true, kind: "video" },
@@ -46,6 +54,16 @@ describe("SessionRoom", () => {
         getUserMedia: mockGetUserMedia,
       },
       writable: true,
+    });
+
+    mockPost.mockResolvedValue({
+      data: {
+        text: "こんにちは",
+        audio_base64: null,
+        speaker_id: 3,
+        participant_id: 1,
+      },
+      error: null,
     });
   });
 
@@ -108,8 +126,8 @@ describe("SessionRoom", () => {
 
     await waitFor(() => {
       expect(screen.getByText("あなた")).toBeInTheDocument();
-      expect(screen.getByText("面接官 A")).toBeInTheDocument();
-      expect(screen.getByText("面接官 B")).toBeInTheDocument();
+      expect(screen.getByText("面接官")).toBeInTheDocument();
+      expect(screen.getByText("会話ログ")).toBeInTheDocument();
     });
   });
 
@@ -135,7 +153,7 @@ describe("SessionRoom", () => {
     });
   });
 
-  it("navigates to sessions list when leave button clicked", async () => {
+  it("navigates to result page when leave button clicked", async () => {
     const user = userEvent.setup();
     mockGetUserMedia.mockResolvedValue(mockStream);
 
@@ -153,6 +171,6 @@ describe("SessionRoom", () => {
     const leaveButton = screen.getByTitle("退出する");
     await user.click(leaveButton);
 
-    expect(mockPush).toHaveBeenCalledWith("/sessions");
+    expect(mockPush).toHaveBeenCalledWith("/sessions/1/result");
   });
 });

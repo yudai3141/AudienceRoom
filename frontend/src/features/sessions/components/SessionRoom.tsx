@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Spinner } from "@/components/ui";
 import { useMediaDevices } from "../hooks/useMediaDevices";
+import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import { useConversation, type Message } from "../hooks/useConversation";
 
 type SessionRoomProps = {
   sessionId: number;
 };
+
+type ConversationPhase = "waiting" | "active" | "ended";
 
 function VideoIcon({ enabled }: { enabled: boolean }) {
   if (enabled) {
@@ -271,9 +275,17 @@ function ControlBar({
   );
 }
 
-function ParticipantPlaceholder({ name }: { name: string }) {
+function ParticipantPlaceholder({
+  name,
+  isSpeaking,
+}: {
+  name: string;
+  isSpeaking?: boolean;
+}) {
   return (
-    <div className="relative aspect-video overflow-hidden rounded-lg bg-slate-800">
+    <div
+      className={`relative aspect-video overflow-hidden rounded-lg bg-slate-800 ${isSpeaking ? "ring-2 ring-green-500" : ""}`}
+    >
       <div className="flex h-full w-full items-center justify-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-700">
           <svg
@@ -294,25 +306,151 @@ function ParticipantPlaceholder({ name }: { name: string }) {
       <div className="absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-xs text-white">
         {name}
       </div>
+      {isSpeaking && (
+        <div className="absolute right-2 top-2 flex items-center gap-1 rounded bg-green-500 px-2 py-1 text-xs text-white">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+          発話中
+        </div>
+      )}
     </div>
   );
 }
 
-export function SessionRoom({ sessionId: _sessionId }: SessionRoomProps) {
+function ConversationLog({ messages }: { messages: Message[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  if (messages.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-400">
+        会話が開始されるのを待っています...
+      </div>
+    );
+  }
+
+  return (
+    <div ref={scrollRef} className="h-full space-y-3 overflow-y-auto p-4">
+      {messages.map((msg) => (
+        <div
+          key={msg.id}
+          className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+        >
+          <div
+            className={`max-w-[80%] rounded-lg px-4 py-2 ${
+              msg.role === "user"
+                ? "bg-indigo-600 text-white"
+                : "bg-slate-700 text-white"
+            }`}
+          >
+            <p className="text-sm">{msg.content}</p>
+            <p className="mt-1 text-xs opacity-70">
+              {msg.timestamp.toLocaleTimeString("ja-JP", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TranscriptDisplay({
+  transcript,
+  interimTranscript,
+  isListening,
+}: {
+  transcript: string;
+  interimTranscript: string;
+  isListening: boolean;
+}) {
+  if (!isListening && !transcript && !interimTranscript) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-lg bg-slate-800 px-4 py-3">
+      <div className="flex items-center gap-2">
+        {isListening && (
+          <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+        )}
+        <span className="text-xs text-slate-400">
+          {isListening ? "音声認識中..." : "認識完了"}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-white">
+        {transcript}
+        <span className="text-slate-400">{interimTranscript}</span>
+      </p>
+    </div>
+  );
+}
+
+export function SessionRoom({ sessionId }: SessionRoomProps) {
   const router = useRouter();
   const [requestingPermission, setRequestingPermission] = useState(false);
+  const [phase, setPhase] = useState<ConversationPhase>("waiting");
+  const conversationStartedRef = useRef(false);
 
   const {
     stream,
     videoEnabled,
     audioEnabled,
     permissionStatus,
-    error,
+    error: mediaError,
     requestPermissions,
     toggleVideo,
     toggleAudio,
     stopStream,
   } = useMediaDevices();
+
+  const {
+    messages,
+    isProcessing,
+    isSpeaking,
+    error: conversationError,
+    sendMessage,
+    startConversation,
+    stopAudio,
+  } = useConversation({
+    sessionId,
+    generateAudio: true,
+  });
+
+  const handleSpeechResult = useCallback(
+    (transcript: string) => {
+      if (phase === "active" && !isProcessing && !isSpeaking) {
+        sendMessage(transcript);
+      }
+    },
+    [phase, isProcessing, isSpeaking, sendMessage],
+  );
+
+  const handleSpeechEnd = useCallback(() => {
+    // 無音検知後の処理（必要に応じて）
+  }, []);
+
+  const {
+    isListening,
+    isSupported: isSpeechSupported,
+    transcript,
+    interimTranscript,
+    error: speechError,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useSpeechRecognition({
+    language: "ja-JP",
+    continuous: false,
+    onResult: handleSpeechResult,
+    onEnd: handleSpeechEnd,
+  });
 
   const handleRequestPermissions = async () => {
     setRequestingPermission(true);
@@ -320,10 +458,39 @@ export function SessionRoom({ sessionId: _sessionId }: SessionRoomProps) {
     setRequestingPermission(false);
   };
 
-  const handleLeave = () => {
+  const handleStartConversation = useCallback(async () => {
+    if (conversationStartedRef.current) return;
+    conversationStartedRef.current = true;
+    setPhase("active");
+    await startConversation();
+  }, [startConversation]);
+
+  const handleStartSpeaking = useCallback(() => {
+    if (!isProcessing && !isSpeaking && phase === "active") {
+      resetTranscript();
+      startListening();
+    }
+  }, [isProcessing, isSpeaking, phase, resetTranscript, startListening]);
+
+  const handleStopSpeaking = useCallback(() => {
+    stopListening();
+  }, [stopListening]);
+
+  const handleLeave = useCallback(() => {
     stopStream();
-    router.push("/sessions");
-  };
+    stopAudio();
+    stopListening();
+    router.push(`/sessions/${sessionId}/result`);
+  }, [stopStream, stopAudio, stopListening, router, sessionId]);
+
+  useEffect(() => {
+    if (stream && phase === "waiting" && !conversationStartedRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- AI会話開始は外部システムとの同期
+      handleStartConversation();
+    }
+  }, [stream, phase, handleStartConversation]);
+
+  const error = mediaError || conversationError || speechError;
 
   if (permissionStatus === "prompt") {
     return (
@@ -348,21 +515,44 @@ export function SessionRoom({ sessionId: _sessionId }: SessionRoomProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 p-4">
-        <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <VideoPreview stream={stream} videoEnabled={videoEnabled} />
-          <ParticipantPlaceholder name="面接官 A" />
-          <ParticipantPlaceholder name="面接官 B" />
+      <div className="flex flex-1 gap-4 p-4">
+        <div className="flex flex-1 flex-col gap-4">
+          <div className="grid flex-1 gap-4 md:grid-cols-2">
+            <VideoPreview stream={stream} videoEnabled={videoEnabled} />
+            <ParticipantPlaceholder name="面接官" isSpeaking={isSpeaking} />
+          </div>
+
+          <TranscriptDisplay
+            transcript={transcript}
+            interimTranscript={interimTranscript}
+            isListening={isListening}
+          />
         </div>
 
-        {error && (
-          <div className="mx-auto mt-4 max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+        <div className="hidden w-80 flex-col rounded-lg bg-slate-900 lg:flex">
+          <div className="border-b border-slate-700 px-4 py-3">
+            <h3 className="text-sm font-medium text-white">会話ログ</h3>
           </div>
-        )}
+          <div className="flex-1 overflow-hidden">
+            <ConversationLog messages={messages} />
+          </div>
+        </div>
       </div>
 
-      <div className="flex justify-center pb-6">
+      {error && (
+        <div className="mx-4 mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {!isSpeechSupported && (
+        <div className="mx-4 mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+          お使いのブラウザは音声認識をサポートしていません。Chrome
+          の使用をお勧めします。
+        </div>
+      )}
+
+      <div className="flex items-center justify-center gap-4 pb-6">
         <ControlBar
           videoEnabled={videoEnabled}
           audioEnabled={audioEnabled}
@@ -370,6 +560,46 @@ export function SessionRoom({ sessionId: _sessionId }: SessionRoomProps) {
           onToggleAudio={toggleAudio}
           onLeave={handleLeave}
         />
+
+        {isSpeechSupported && phase === "active" && (
+          <button
+            onMouseDown={handleStartSpeaking}
+            onMouseUp={handleStopSpeaking}
+            onTouchStart={handleStartSpeaking}
+            onTouchEnd={handleStopSpeaking}
+            disabled={isProcessing || isSpeaking}
+            className={`flex h-14 items-center gap-2 rounded-full px-6 text-white transition-colors ${
+              isListening
+                ? "bg-red-500"
+                : isProcessing || isSpeaking
+                  ? "cursor-not-allowed bg-slate-600"
+                  : "bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+              />
+            </svg>
+            <span className="text-sm font-medium">
+              {isListening
+                ? "話しています..."
+                : isProcessing
+                  ? "処理中..."
+                  : isSpeaking
+                    ? "AI応答中..."
+                    : "押して話す"}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
