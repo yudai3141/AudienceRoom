@@ -255,7 +255,7 @@ Database (PostgreSQL)
 | 機能 | MVP | 将来拡張 | 説明 |
 |------|-----|----------|------|
 | STT | Web Speech API | Whisper | ブラウザ内蔵、無料 |
-| LLM | Gemini 2.0 Flash | OpenAI GPT-4o | 高速・低コスト、日本語対応 |
+| LLM | Gemini 2.5 Flash | OpenAI GPT-4o | 高速・低コスト、日本語対応 |
 | TTS | VOICEVOX (Docker) | - | 高品質日本語音声、キャラクター音声対応 |
 
 **LLM Provider 設計:**
