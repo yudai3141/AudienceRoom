@@ -11,7 +11,7 @@ import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFirebaseAuth } from "@/lib/firebase";
 import { Button, Input } from "@/components/ui";
 import { loginToBackend } from "../api/login";
 
@@ -42,6 +42,12 @@ export function LoginForm() {
     setLoading(true);
 
     try {
+      const auth = getFirebaseAuth();
+      if (!auth) {
+        setError("認証サービスが利用できません");
+        return;
+      }
+
       let userCredential;
       if (mode === "login") {
         userCredential = await signInWithEmailAndPassword(
@@ -86,6 +92,12 @@ export function LoginForm() {
     setGoogleLoading(true);
 
     try {
+      const auth = getFirebaseAuth();
+      if (!auth) {
+        setError("認証サービスが利用できません");
+        return;
+      }
+
       const provider = new GoogleAuthProvider();
       const userCredential = await signInWithPopup(auth, provider);
 
