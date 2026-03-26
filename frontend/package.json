@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "ci": "npm run typecheck && npm run lint && npm run test && npm run build",
     "generate:api": "openapi-typescript ../openapi.json -o src/lib/api/schema.gen.ts",
     "check:api": "npm run generate:api && git diff --exit-code src/lib/api/schema.gen.ts"
   },
