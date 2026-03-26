@@ -13,10 +13,14 @@ vi.mock("next/navigation", () => ({
 }));
 
 const mockPost = vi.fn();
+const mockGet = vi.fn();
+const mockPatch = vi.fn();
 
 vi.mock("@/lib/api/client", () => ({
   api: {
     POST: (...args: unknown[]) => mockPost(...args),
+    GET: (...args: unknown[]) => mockGet(...args),
+    PATCH: (...args: unknown[]) => mockPatch(...args),
   },
 }));
 
@@ -56,6 +60,28 @@ describe("SessionRoom", () => {
       writable: true,
     });
 
+    mockGet.mockResolvedValue({
+      data: {
+        id: 1,
+        user_id: 1,
+        status: "in_progress",
+        mode: "interview",
+        participant_count: 1,
+        feedback_enabled: true,
+        theme: "テスト面接",
+        overall_score: null,
+        feedback_summary: null,
+        started_at: null,
+        ended_at: null,
+        created_at: "2026-03-26T10:00:00Z",
+        updated_at: "2026-03-26T10:00:00Z",
+        participants: [],
+        messages: [],
+        feedback: null,
+      },
+      error: null,
+    });
+
     mockPost.mockResolvedValue({
       data: {
         text: "こんにちは",
@@ -65,14 +91,21 @@ describe("SessionRoom", () => {
       },
       error: null,
     });
+
+    mockPatch.mockResolvedValue({
+      data: { id: 1, status: "completed" },
+      error: null,
+    });
   });
 
-  it("renders permission request screen initially", () => {
+  it("renders permission request screen initially", async () => {
     render(<SessionRoom sessionId={1} />, { wrapper: createWrapper() });
 
-    expect(
-      screen.getByText("カメラとマイクを使用します"),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByText("カメラとマイクを使用します"),
+      ).toBeInTheDocument();
+    });
     expect(
       screen.getByRole("button", { name: "アクセスを許可する" }),
     ).toBeInTheDocument();
@@ -83,6 +116,12 @@ describe("SessionRoom", () => {
     mockGetUserMedia.mockResolvedValue(mockStream);
 
     render(<SessionRoom sessionId={1} />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "アクセスを許可する" }),
+      ).toBeInTheDocument();
+    });
 
     const permissionButton = screen.getByRole("button", {
       name: "アクセスを許可する",
@@ -100,6 +139,12 @@ describe("SessionRoom", () => {
     mockGetUserMedia.mockRejectedValue({ name: "NotAllowedError" });
 
     render(<SessionRoom sessionId={1} />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "アクセスを許可する" }),
+      ).toBeInTheDocument();
+    });
 
     const permissionButton = screen.getByRole("button", {
       name: "アクセスを許可する",
@@ -119,6 +164,12 @@ describe("SessionRoom", () => {
 
     render(<SessionRoom sessionId={1} />, { wrapper: createWrapper() });
 
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "アクセスを許可する" }),
+      ).toBeInTheDocument();
+    });
+
     const permissionButton = screen.getByRole("button", {
       name: "アクセスを許可する",
     });
@@ -137,6 +188,12 @@ describe("SessionRoom", () => {
 
     render(<SessionRoom sessionId={1} />, { wrapper: createWrapper() });
 
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "アクセスを許可する" }),
+      ).toBeInTheDocument();
+    });
+
     const permissionButton = screen.getByRole("button", {
       name: "アクセスを許可する",
     });
@@ -153,11 +210,17 @@ describe("SessionRoom", () => {
     });
   });
 
-  it("navigates to result page when leave button clicked", async () => {
+  it("shows leave button in video room", async () => {
     const user = userEvent.setup();
     mockGetUserMedia.mockResolvedValue(mockStream);
 
     render(<SessionRoom sessionId={1} />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "アクセスを許可する" }),
+      ).toBeInTheDocument();
+    });
 
     const permissionButton = screen.getByRole("button", {
       name: "アクセスを許可する",
@@ -167,10 +230,5 @@ describe("SessionRoom", () => {
     await waitFor(() => {
       expect(screen.getByTitle("退出する")).toBeInTheDocument();
     });
-
-    const leaveButton = screen.getByTitle("退出する");
-    await user.click(leaveButton);
-
-    expect(mockPush).toHaveBeenCalledWith("/sessions/1/result");
   });
 });

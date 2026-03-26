@@ -1,17 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Button, Card, Spinner } from "@/components/ui";
 import { useMediaDevices } from "../hooks/useMediaDevices";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useConversation, type Message } from "../hooks/useConversation";
+import { useSessionDetail } from "../hooks/useSessionDetail";
+import { useUpdateSessionStatus } from "../hooks/useUpdateSessionStatus";
+import { useGenerateFeedback } from "../hooks/useGenerateFeedback";
 
 type SessionRoomProps = {
   sessionId: number;
 };
 
-type ConversationPhase = "waiting" | "active" | "ended";
+type ConversationPhase = "waiting" | "active" | "ending" | "ended";
+
+type FeedbackSummary = {
+  overallScore: number | null;
+  summaryTitle: string;
+  shortComment: string | null;
+};
 
 function VideoIcon({ enabled }: { enabled: boolean }) {
   if (enabled) {
@@ -216,12 +226,14 @@ function VideoPreview({
 function ControlBar({
   videoEnabled,
   audioEnabled,
+  isEnding,
   onToggleVideo,
   onToggleAudio,
   onLeave,
 }: {
   videoEnabled: boolean;
   audioEnabled: boolean;
+  isEnding: boolean;
   onToggleVideo: () => void;
   onToggleAudio: () => void;
   onLeave: () => void;
@@ -230,11 +242,12 @@ function ControlBar({
     <div className="flex items-center justify-center gap-4 rounded-lg bg-slate-800 px-6 py-4">
       <button
         onClick={onToggleAudio}
+        disabled={isEnding}
         className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
           audioEnabled
             ? "bg-slate-700 text-white hover:bg-slate-600"
             : "bg-red-500 text-white hover:bg-red-600"
-        }`}
+        } ${isEnding ? "cursor-not-allowed opacity-50" : ""}`}
         title={audioEnabled ? "マイクをオフにする" : "マイクをオンにする"}
       >
         <MicIcon enabled={audioEnabled} />
@@ -242,11 +255,12 @@ function ControlBar({
 
       <button
         onClick={onToggleVideo}
+        disabled={isEnding}
         className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
           videoEnabled
             ? "bg-slate-700 text-white hover:bg-slate-600"
             : "bg-red-500 text-white hover:bg-red-600"
-        }`}
+        } ${isEnding ? "cursor-not-allowed opacity-50" : ""}`}
         title={videoEnabled ? "カメラをオフにする" : "カメラをオンにする"}
       >
         <VideoIcon enabled={videoEnabled} />
@@ -254,22 +268,32 @@ function ControlBar({
 
       <button
         onClick={onLeave}
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600"
+        disabled={isEnding}
+        className={`flex h-12 items-center justify-center gap-2 rounded-full bg-red-500 px-4 text-white transition-colors hover:bg-red-600 ${
+          isEnding ? "cursor-not-allowed opacity-50" : ""
+        }`}
         title="退出する"
       >
-        <svg
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-          />
-        </svg>
+        {isEnding ? (
+          <>
+            <Spinner size="sm" />
+            <span className="text-sm">終了中...</span>
+          </>
+        ) : (
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
+          </svg>
+        )}
       </button>
     </div>
   );
@@ -392,11 +416,160 @@ function TranscriptDisplay({
   );
 }
 
+function FeedbackOverlay({
+  phase,
+  feedback,
+  onViewDetails,
+}: {
+  phase: ConversationPhase;
+  feedback: FeedbackSummary | null;
+  onViewDetails: () => void;
+}) {
+  if (phase !== "ending" && phase !== "ended") {
+    return null;
+  }
+
+  const stars = feedback?.overallScore
+    ? Math.round(feedback.overallScore / 20)
+    : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+      <Card className="mx-4 max-w-md">
+        <div className="p-8 text-center">
+          {phase === "ending" ? (
+            <>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center">
+                <Spinner size="lg" />
+              </div>
+              <h2 className="mb-2 text-xl font-semibold text-slate-900">
+                フィードバックを生成中...
+              </h2>
+              <p className="text-sm text-slate-500">
+                AIがあなたのパフォーマンスを分析しています
+              </p>
+            </>
+          ) : feedback ? (
+            <>
+              <div className="mb-4 text-4xl text-amber-500">
+                {"★".repeat(stars)}
+                {"☆".repeat(5 - stars)}
+              </div>
+              {feedback.overallScore !== null && (
+                <div className="mb-2 text-3xl font-bold text-slate-900">
+                  {feedback.overallScore}点
+                </div>
+              )}
+              <h2 className="mb-2 text-xl font-semibold text-slate-900">
+                {feedback.summaryTitle}
+              </h2>
+              {feedback.shortComment && (
+                <p className="mb-6 text-sm text-slate-600">
+                  {feedback.shortComment}
+                </p>
+              )}
+              <Button onClick={onViewDetails} className="w-full">
+                詳しい結果を見る
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <svg
+                  className="h-8 w-8 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h2 className="mb-2 text-xl font-semibold text-slate-900">
+                お疲れ様でした！
+              </h2>
+              <p className="mb-6 text-sm text-slate-500">
+                練習が完了しました
+              </p>
+              <Button onClick={onViewDetails} className="w-full">
+                結果を見る
+              </Button>
+            </>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function getModeLabel(mode: string): string {
+  switch (mode) {
+    case "interview":
+      return "面接練習";
+    case "presentation":
+      return "プレゼン練習";
+    default:
+      return mode;
+  }
+}
+
+function getRoleLabel(mode: string): string {
+  switch (mode) {
+    case "interview":
+      return "面接官";
+    case "presentation":
+      return "聴衆";
+    default:
+      return "参加者";
+  }
+}
+
+function SessionInfo({
+  mode,
+  theme,
+  participantCount,
+}: {
+  mode: string;
+  theme: string | null;
+  participantCount: number;
+}) {
+  return (
+    <div className="flex items-center gap-4 rounded-lg bg-slate-800 px-4 py-2 text-sm text-white">
+      <span className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium">
+        {getModeLabel(mode)}
+      </span>
+      {theme && (
+        <span className="truncate text-slate-300" title={theme}>
+          {theme}
+        </span>
+      )}
+      <span className="text-slate-400">
+        {getRoleLabel(mode)} {participantCount}人
+      </span>
+    </div>
+  );
+}
+
 export function SessionRoom({ sessionId }: SessionRoomProps) {
   const router = useRouter();
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [phase, setPhase] = useState<ConversationPhase>("waiting");
+  const [feedbackSummary, setFeedbackSummary] = useState<FeedbackSummary | null>(
+    null,
+  );
   const conversationStartedRef = useRef(false);
+
+  const {
+    data: sessionDetail,
+    isLoading: sessionLoading,
+  } = useSessionDetail(sessionId);
+
+  const updateStatus = useUpdateSessionStatus();
+  const generateFeedback = useGenerateFeedback();
 
   const {
     stream,
@@ -476,12 +649,50 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     stopListening();
   }, [stopListening]);
 
-  const handleLeave = useCallback(() => {
+  const handleLeave = useCallback(async () => {
+    if (phase === "ending" || phase === "ended") return;
+    
+    flushSync(() => {
+      setPhase("ending");
+    });
+
     stopStream();
     stopAudio();
     stopListening();
+
+    try {
+      await updateStatus.mutateAsync({
+        sessionId,
+        status: "completed",
+      });
+
+      if (sessionDetail?.feedback_enabled) {
+        const result = await generateFeedback.mutateAsync(sessionId);
+        setFeedbackSummary({
+          overallScore: result.overall_score,
+          summaryTitle: result.summary_title,
+          shortComment: result.short_comment,
+        });
+      }
+    } catch {
+      // エラーが発生しても終了画面を表示
+    }
+
+    setPhase("ended");
+  }, [
+    phase,
+    stopStream,
+    stopAudio,
+    stopListening,
+    updateStatus,
+    generateFeedback,
+    sessionId,
+    sessionDetail,
+  ]);
+
+  const handleViewDetails = useCallback(() => {
     router.push(`/sessions/${sessionId}/result`);
-  }, [stopStream, stopAudio, stopListening, router, sessionId]);
+  }, [router, sessionId]);
 
   useEffect(() => {
     if (stream && phase === "waiting" && !conversationStartedRef.current) {
@@ -491,6 +702,27 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
   }, [stream, phase, handleStartConversation]);
 
   const error = mediaError || conversationError || speechError;
+  const isEndingOrEnded = phase === "ending" || phase === "ended";
+
+  if (isEndingOrEnded) {
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-900">
+        <FeedbackOverlay
+          phase={phase}
+          feedback={feedbackSummary}
+          onViewDetails={handleViewDetails}
+        />
+      </div>
+    );
+  }
+
+  if (sessionLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
   if (permissionStatus === "prompt") {
     return (
@@ -513,14 +745,55 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     );
   }
 
+  const participants = sessionDetail?.participants ?? [];
+  const participantCount = sessionDetail?.participant_count ?? 1;
+  const roleLabel = sessionDetail ? getRoleLabel(sessionDetail.mode) : "参加者";
+
+  const displayParticipantCount =
+    participants.length > 0 ? participants.length : participantCount;
+
+  const participantElements =
+    participants.length > 0
+      ? participants.map((participant, index) => (
+          <ParticipantPlaceholder
+            key={participant.id}
+            name={participant.display_name}
+            isSpeaking={isSpeaking && index === 0}
+          />
+        ))
+      : Array.from({ length: participantCount }, (_, index) => (
+          <ParticipantPlaceholder
+            key={`placeholder-${index}`}
+            name={`${roleLabel}${participantCount > 1 ? ` ${index + 1}` : ""}`}
+            isSpeaking={isSpeaking && index === 0}
+          />
+        ));
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      {sessionDetail && (
+        <div className="px-4 pt-4">
+          <SessionInfo
+            mode={sessionDetail.mode}
+            theme={sessionDetail.theme}
+            participantCount={sessionDetail.participant_count}
+          />
+        </div>
+      )}
+
       <div className="flex flex-1 gap-4 p-4">
         <div className="flex flex-1 flex-col gap-4">
-          <div className="grid flex-1 gap-4 md:grid-cols-2">
-            <VideoPreview stream={stream} videoEnabled={videoEnabled} />
-            <ParticipantPlaceholder name="面接官" isSpeaking={isSpeaking} />
-          </div>
+          {displayParticipantCount === 1 ? (
+            <div className="grid flex-1 gap-4 md:grid-cols-2">
+              <VideoPreview stream={stream} videoEnabled={videoEnabled} />
+              {participantElements}
+            </div>
+          ) : (
+            <div className="grid flex-1 grid-cols-2 gap-4">
+              <VideoPreview stream={stream} videoEnabled={videoEnabled} />
+              {participantElements}
+            </div>
+          )}
 
           <TranscriptDisplay
             transcript={transcript}
@@ -556,6 +829,7 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
         <ControlBar
           videoEnabled={videoEnabled}
           audioEnabled={audioEnabled}
+          isEnding={false}
           onToggleVideo={toggleVideo}
           onToggleAudio={toggleAudio}
           onLeave={handleLeave}
