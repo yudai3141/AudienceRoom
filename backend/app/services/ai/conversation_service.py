@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -136,6 +137,11 @@ class ConversationService:
         if session is None:
             raise ValueError(f"Session {session_id} not found")
 
+        if session.status == "waiting":
+            session.status = "active"
+            session.started_at = datetime.now(timezone.utc)
+            self._db.commit()
+
         participants = self._participant_repo.list_by_session_id(session_id)
         host_participant = next(
             (p for p in participants if p.role == "host"),
@@ -144,7 +150,7 @@ class ConversationService:
 
         ai_response = await self._generate_response(
             session=session,
-            conversation_history=[],
+            conversation_history=[{"role": "user", "content": "面接を始めてください。"}],
             participant=host_participant,
         )
 
