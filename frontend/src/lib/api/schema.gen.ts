@@ -213,6 +213,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/practice-sessions/{session_id}/generate-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Feedback
+         * @description Generate AI feedback for a completed practice session.
+         */
+        post: operations["generate_feedback_practice_sessions__session_id__generate_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session-participants": {
         parameters: {
             query?: never;
@@ -387,6 +407,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversation/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Message
+         * @description Send a message to the AI and receive a response.
+         *
+         *     This endpoint processes the user's spoken message, generates an AI response
+         *     using the appropriate prompt for the session mode, and optionally returns
+         *     synthesized audio using VOICEVOX.
+         */
+        post: operations["send_message_conversation_message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversation/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Conversation
+         * @description Start a conversation and get the AI's opening message.
+         *
+         *     This endpoint generates the AI's initial greeting or prompt based on
+         *     the session mode and settings.
+         */
+        post: operations["start_conversation_conversation_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -429,6 +496,39 @@ export interface components {
             /** Is Active */
             is_active: boolean;
         };
+        /** ConversationMessageRequest */
+        ConversationMessageRequest: {
+            /** Session Id */
+            session_id: number;
+            /** Message */
+            message: string;
+            /**
+             * Generate Audio
+             * @default true
+             */
+            generate_audio: boolean;
+        };
+        /** ConversationResponse */
+        ConversationResponse: {
+            /** Text */
+            text: string;
+            /** Audio Base64 */
+            audio_base64?: string | null;
+            /** Speaker Id */
+            speaker_id?: number | null;
+            /** Participant Id */
+            participant_id?: number | null;
+        };
+        /** ConversationStartRequest */
+        ConversationStartRequest: {
+            /** Session Id */
+            session_id: number;
+            /**
+             * Generate Audio
+             * @default true
+             */
+            generate_audio: boolean;
+        };
         /** DashboardResponse */
         DashboardResponse: {
             /** Total Sessions */
@@ -439,6 +539,22 @@ export interface components {
             average_score: number | null;
             /** Recent Sessions */
             recent_sessions: components["schemas"]["SessionListItem"][];
+        };
+        /**
+         * FeedbackGenerationResponse
+         * @description Response for feedback generation API.
+         */
+        FeedbackGenerationResponse: {
+            /** Session Id */
+            session_id: number;
+            /** Feedback Id */
+            feedback_id: number;
+            /** Overall Score */
+            overall_score: number;
+            /** Summary Title */
+            summary_title: string;
+            /** Short Comment */
+            short_comment: string | null;
         };
         /** FeedbackMetricBulkCreateRequest */
         FeedbackMetricBulkCreateRequest: {
@@ -1259,6 +1375,37 @@ export interface operations {
             };
         };
     };
+    generate_feedback_practice_sessions__session_id__generate_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackGenerationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_session_participants_session_participants_get: {
         parameters: {
             query: {
@@ -1692,6 +1839,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedbackMetricResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_conversation_message_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_conversation_conversation_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationResponse"];
                 };
             };
             /** @description Validation Error */

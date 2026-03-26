@@ -108,3 +108,13 @@ class DashboardResponse(BaseModel):
     completed_sessions: int
     average_score: float | None
     recent_sessions: list[SessionListItem]
+
+
+class FeedbackGenerationResponse(BaseModel):
+    """Response for feedback generation API."""
+
+    session_id: int
+    feedback_id: int
+    overall_score: int
+    summary_title: str
+    short_comment: str | None

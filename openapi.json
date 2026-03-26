@@ -487,6 +487,46 @@
         ]
       }
     },
+    "/practice-sessions/{session_id}/generate-feedback": {
+      "post": {
+        "summary": "Generate Feedback",
+        "description": "Generate AI feedback for a completed practice session.",
+        "operationId": "generate_feedback_practice_sessions__session_id__generate_feedback_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackGenerationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/session-participants": {
       "post": {
         "summary": "Create Session Participant",
@@ -1038,6 +1078,84 @@
           }
         }
       }
+    },
+    "/conversation/message": {
+      "post": {
+        "summary": "Send Message",
+        "description": "Send a message to the AI and receive a response.\n\nThis endpoint processes the user's spoken message, generates an AI response\nusing the appropriate prompt for the session mode, and optionally returns\nsynthesized audio using VOICEVOX.",
+        "operationId": "send_message_conversation_message_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversation/start": {
+      "post": {
+        "summary": "Start Conversation",
+        "description": "Start a conversation and get the AI's opening message.\n\nThis endpoint generates the AI's initial greeting or prompt based on\nthe session mode and settings.",
+        "operationId": "start_conversation_conversation_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1177,6 +1295,93 @@
         ],
         "title": "AiCharacterResponse"
       },
+      "ConversationMessageRequest": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "title": "Generate Audio",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "message"
+        ],
+        "title": "ConversationMessageRequest"
+      },
+      "ConversationResponse": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "audio_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Base64"
+          },
+          "speaker_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Id"
+          },
+          "participant_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participant Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ConversationResponse"
+      },
+      "ConversationStartRequest": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "generate_audio": {
+            "type": "boolean",
+            "title": "Generate Audio",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "ConversationStartRequest"
+      },
       "DashboardResponse": {
         "properties": {
           "total_sessions": {
@@ -1214,6 +1419,47 @@
           "recent_sessions"
         ],
         "title": "DashboardResponse"
+      },
+      "FeedbackGenerationResponse": {
+        "properties": {
+          "session_id": {
+            "type": "integer",
+            "title": "Session Id"
+          },
+          "feedback_id": {
+            "type": "integer",
+            "title": "Feedback Id"
+          },
+          "overall_score": {
+            "type": "integer",
+            "title": "Overall Score"
+          },
+          "summary_title": {
+            "type": "string",
+            "title": "Summary Title"
+          },
+          "short_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "feedback_id",
+          "overall_score",
+          "summary_title",
+          "short_comment"
+        ],
+        "title": "FeedbackGenerationResponse",
+        "description": "Response for feedback generation API."
       },
       "FeedbackMetricBulkCreateRequest": {
         "properties": {
