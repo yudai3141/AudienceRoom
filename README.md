@@ -17,11 +17,12 @@
 4. [Main Features](#5-main-features)
 5. [System Architecture](#6-system-architecture)
 6. [Backend Architecture](#7-backend-architecture)
-7. [Database Design](#8-database-design)
-8. [Tech Stack](#9-tech-stack)
-9. [Local Development](#10-local-development)
-10. [Project Structure](#11-project-structure)
-11. [Development Roadmap](#12-development-roadmap)
+7. [AI Integration Architecture](#8-ai-integration-architecture)
+8. [Database Design](#9-database-design)
+9. [Tech Stack](#10-tech-stack)
+10. [Local Development](#11-local-development)
+11. [Project Structure](#12-project-structure)
+12. [Development Roadmap](#13-development-roadmap)
 
 ---
 
@@ -176,12 +177,176 @@ Database (PostgreSQL)
 
 ---
 
-## 8. Database Design
+## 8. AI Integration Architecture
+
+### 8.1 Conversation Flow (MVP: REST API)
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                         Frontend (Browser)                       │
+├─────────────────────────────────────────────────────────────────┤
+│  [ユーザー発話開始]                                               │
+│       ↓                                                          │
+│  [STT: Web Speech API] ← 無音検知で自動停止                       │
+│       ↓                                                          │
+│  [onend イベント: 発話終了検知]                                   │
+│       ↓                                                          │
+│  [POST /conversation/message] ─────────┐                         │
+│                                        │                         │
+│  [Response: テキスト + 音声] ←─────────┼─────────┐               │
+│       ↓                                │         │               │
+│  [音声再生 (WAV)]                       │         │               │
+│       ↓                                │         │               │
+│  [再生完了 → 次の発話待ち]              │         │               │
+└────────────────────────────────────────┼─────────┼───────────────┘
+                                         │         │
+┌────────────────────────────────────────┼─────────┼───────────────┐
+│                         Backend (FastAPI)        │               │
+├────────────────────────────────────────┼─────────┼───────────────┤
+│                                        ↓         │               │
+│  [POST /conversation/message 受信]               │               │
+│       ↓                                          │               │
+│  [session_messages に保存（ユーザー発話）]        │               │
+│       ↓                                          │               │
+│  [LLM API (Gemini): 応答生成]                    │               │
+│       ↓                                          │               │
+│  [session_messages に保存（AI応答）]              │               │
+│       ↓                                          │               │
+│  [VOICEVOX: TTS 音声生成]                         │               │
+│       ↓                                          │               │
+│  [Response: { text, audio_base64 }] ─────────────┘               │
+└─────────────────────────────────────────────────────────────────┘
+                                         │
+┌────────────────────────────────────────┼─────────────────────────┐
+│                         VOICEVOX (Docker)                        │
+├──────────────────────────────────────────────────────────────────┤
+│  [POST /audio_query] → [POST /synthesis] → 音声データ返却        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**将来拡張: WebSocket**
+- リアルタイムストリーミング応答が必要な場合に検討
+- LLM のストリーミング出力 + 逐次 TTS 生成
+
+### 8.2 Feedback Generation Flow
+
+```text
+[セッション中]
+    ↓
+[退出ボタン or 時間終了]
+    ↓
+[POST /practice-sessions/{id}/status → completed]
+    ↓
+[POST /practice-sessions/{id}/generate-feedback]
+    ↓
+[session_messages 全取得]
+    ↓
+[LLM API: フィードバック生成プロンプト実行]
+    ↓
+[session_feedback + feedback_metrics 保存]
+    ↓
+[practice_sessions.overall_score 更新]
+    ↓
+[Frontend: /sessions/{id}/result にリダイレクト]
+```
+
+### 8.3 Technology Selection
+
+| 機能 | MVP | 将来拡張 | 説明 |
+|------|-----|----------|------|
+| STT | Web Speech API | Whisper | ブラウザ内蔵、無料 |
+| LLM | Gemini 2.0 Flash | OpenAI GPT-4o | 高速・低コスト、日本語対応 |
+| TTS | VOICEVOX (Docker) | - | 高品質日本語音声、キャラクター音声対応 |
+
+**LLM Provider 設計:**
+- `LLMProvider` インターフェースで抽象化
+- `GeminiProvider` / `OpenAIProvider` を実装
+- 環境変数で切り替え可能（`LLM_PROVIDER=gemini|openai`）
+
+### 8.4 AI Module File Structure
+
+```text
+backend/app/
+├── services/
+│   ├── ai/
+│   │   ├── __init__.py
+│   │   ├── llm/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py              # LLMProvider 抽象クラス
+│   │   │   ├── gemini.py            # GeminiProvider
+│   │   │   ├── openai.py            # OpenAIProvider（将来用）
+│   │   │   └── factory.py           # get_llm_provider()
+│   │   ├── conversation_service.py  # 会話ロジック
+│   │   ├── feedback_generator.py    # FB 生成ロジック
+│   │   └── tts_service.py           # VOICEVOX TTS
+│   └── prompts/
+│       ├── __init__.py
+│       ├── interview.py             # 面接用プロンプト
+│       ├── presentation.py          # プレゼン用プロンプト
+│       └── feedback.py              # FB 生成用プロンプト
+├── api/routes/
+│   └── conversation.py              # POST /conversation/message
+
+frontend/src/features/sessions/
+├── hooks/
+│   ├── useSpeechRecognition.ts      # STT (Web Speech API + 無音検知)
+│   └── useConversation.ts           # REST API 通信 + 音声再生
+├── components/
+│   └── SessionRoom.tsx              # 統合
+```
+
+### 8.5 VOICEVOX Integration
+
+```yaml
+# docker-compose.yml に追加
+voicevox:
+  image: voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+  ports:
+    - "50021:50021"
+```
+
+**使用方法:**
+```python
+# 1. 音声クエリ生成
+response = requests.post(
+    "http://voicevox:50021/audio_query",
+    params={"text": "こんにちは", "speaker": 1}
+)
+query = response.json()
+
+# 2. 音声合成
+audio = requests.post(
+    "http://voicevox:50021/synthesis",
+    params={"speaker": 1},
+    json=query
+)
+# audio.content に WAV データ
+```
+
+### 8.6 Prompt Design Principles
+
+1. **キャラクター設定**
+   - 面接官 / 聴衆の役割を明確に
+   - strictness（gentle / normal / hard）に応じた応答トーン
+
+2. **コンテキスト維持**
+   - セッション設定（mode, theme, user_goal, user_concerns）を含める
+   - 直近の会話履歴を含める
+
+3. **フィードバック生成**
+   - positive_points: 3-5 個の具体的な良い点
+   - improvement_points: 2-3 個の建設的な改善提案
+   - overall_score: 0-100 の総合評価
+   - closing_message: 励ましのメッセージ
+
+---
+
+## 9. Database Design
 
 このアプリの中心は **「1回の練習 = 1セッション」** です。  
 そのため `practice_sessions` を中心にデータを設計します。
 
-### 8.1 Main Tables
+### 9.1 Main Tables
 - `users`
 - `practice_sessions`
 - `ai_characters`
@@ -190,7 +355,7 @@ Database (PostgreSQL)
 - `session_feedback`
 - `feedback_metrics`
 
-### 8.2 users
+### 9.2 users
 
 | Column | Type | Required | Description |
 |---|---|---:|---|
@@ -208,7 +373,7 @@ Database (PostgreSQL)
 - `firebase_uid` は Firebase Authentication 上のユーザと、PostgreSQL 上のユーザレコードを紐づけるためのキーです。
 - `firebase_uid` と `email` は一意制約を想定します。
 
-### 8.3 practice_sessions
+### 9.3 practice_sessions
 
 | Column | Type | Required | Description |
 |---|---|---:|---|
@@ -240,7 +405,7 @@ Database (PostgreSQL)
 - `cancelled`: 中断
 - `error`: 異常終了
 
-### 8.4 ai_characters
+### 9.4 ai_characters
 
 | Column | Type | Required | Description |
 |---|---|---:|---|
@@ -256,7 +421,7 @@ Database (PostgreSQL)
 | created_at | timestamptz | ○ | 作成日時 |
 | updated_at | timestamptz | ○ | 更新日時 |
 
-### 8.5 session_participants
+### 9.5 session_participants
 
 | Column | Type | Required | Description |
 |---|---|---:|---|
@@ -269,7 +434,7 @@ Database (PostgreSQL)
 | is_active | boolean | ○ | 有効フラグ |
 | created_at | timestamptz | ○ | 作成日時 |
 
-### 8.6 session_messages
+### 9.6 session_messages
 
 | Column | Type | Required | Description |
 |---|---|---:|---|
@@ -285,7 +450,7 @@ Database (PostgreSQL)
 - リアルタイム処理の負荷を抑えるため、まずは確定済みの発話のみ保存する想定です。
 - フィラーや話速などの詳細分析値は、初期段階では保持しません。
 
-### 8.7 session_feedback
+### 9.7 session_feedback
 
 | Column | Type | Required | Description |
 |---|---|---:|---|
@@ -300,7 +465,7 @@ Database (PostgreSQL)
 | created_at | timestamptz | ○ | 作成日時 |
 | updated_at | timestamptz | ○ | 更新日時 |
 
-### 8.8 feedback_metrics
+### 9.8 feedback_metrics
 
 | Column | Type | Required | Description |
 |---|---|---:|---|
@@ -314,46 +479,46 @@ Database (PostgreSQL)
 
 ---
 
-## 9. Tech Stack
+## 10. Tech Stack
 
-### 9.1 Frontend
+### 10.1 Frontend
 - Next.js 16 (App Router / TypeScript)
 - Tailwind CSS v4
 - openapi-fetch（型安全な API クライアント）
 - openapi-typescript（OpenAPI → TypeScript 型自動生成）
 
-### 9.2 Backend
+### 10.2 Backend
 - FastAPI
 - SQLAlchemy 2.x
 - Alembic
 - PostgreSQL 16
 - firebase-admin SDK
 
-### 9.3 Authentication
+### 10.3 Authentication
 - Firebase Authentication
 - Firebase Auth Emulator（ローカル開発）
 
-### 9.4 Infrastructure
+### 10.4 Infrastructure
 - Docker / Docker Compose
 - Firebase Emulator Suite
 - Cloud Run + Cloud SQL for PostgreSQL（本番想定）
 
-### 9.5 CI/CD
+### 10.5 CI/CD
 - GitHub Actions
   - Backend CI（pytest + Firebase Emulator）
   - OpenAPI Schema Check（spec と型の一致検証）
 
 ---
 
-## 10. Local Development
+## 11. Local Development
 
-### 10.1 Prerequisites
+### 11.1 Prerequisites
 - Docker
 - Docker Compose
 - Node.js 20+（ローカル実行時）
 - Python 3.11+（ローカル実行時）
 
-### 10.2 Start
+### 11.2 Start
 プロジェクトルートで以下を実行します。
 
 ```bash
@@ -370,20 +535,20 @@ docker compose up --build
 | Firebase Emulator | http://localhost:9099 | Auth Emulator |
 | Firebase Emulator UI | http://localhost:4000 | Emulator 管理画面 |
 
-### 10.3 Health Check
+### 11.3 Health Check
 
 ```text
 http://localhost:8000/health
 http://localhost:8000/health/db
 ```
 
-### 10.4 API Docs
+### 11.4 API Docs
 
 ```text
 http://localhost:8000/docs
 ```
 
-### 10.5 OpenAPI 型生成
+### 11.5 OpenAPI 型生成
 
 ```bash
 make generate-api
@@ -391,7 +556,7 @@ make generate-api
 
 ---
 
-## 11. Project Structure
+## 12. Project Structure
 
 ```text
 AudienceRoom/
@@ -433,7 +598,7 @@ AudienceRoom/
 
 ---
 
-## 12. Development Roadmap
+## 13. Development Roadmap
 
 ### Phase 1: Backend 基盤 ✅
 - [x] Backend project structure + Docker setup
@@ -466,23 +631,59 @@ AudienceRoom/
 - [x] ダッシュボード用サマリー API
 - [x] SessionParticipant に AI キャラ情報ネスト
 
-### Phase 6: Frontend UI 🔜
-- [ ] ログイン画面（Firebase Client SDK）
-- [ ] ダッシュボード画面
-- [ ] セッション作成フロー（設定画面）
-- [ ] 履歴一覧画面
-- [ ] セッション詳細 / フィードバック表示画面
+### Phase 6: Frontend UI ✅
+- [x] ログイン画面（Firebase Client SDK）
+- [x] ダッシュボード画面
+- [x] セッション作成フロー（設定画面）
+- [x] 履歴一覧画面
+- [x] セッションルーム（カメラ / マイク制御）
+- [x] フィードバック表示画面
 
-### Phase 7: AI 連携
-- [ ] FB 生成 API（会話ログ → AI フィードバック生成）
-- [ ] プロンプト設計
-- [ ] OpenAI / Gemini 等の接続
+### Phase 7: AI 連携 🔜
 
-### Phase 8: AudienceRoom（練習画面）
-- [ ] Zoom 風 UI
-- [ ] カメラ / マイク制御
-- [ ] リアルタイム会話（WebSocket / WebRTC）
-- [ ] AI キャラとの対話
+#### Phase 7-1: LLM 基盤
+- [ ] `LLMProvider` 抽象クラス（`services/ai/llm/base.py`）
+- [ ] `GeminiProvider` 実装（MVP）
+- [ ] `OpenAIProvider` 実装（将来用）
+- [ ] 環境変数設定（`LLM_PROVIDER`, `GEMINI_API_KEY`, `OPENAI_API_KEY`）
+- [ ] 基本プロンプトテンプレート
+
+#### Phase 7-2: フィードバック生成
+- [ ] FB 生成サービス（`services/ai/feedback_generator.py`）
+- [ ] FB 生成プロンプト（`services/prompts/feedback.py`）
+- [ ] `POST /practice-sessions/{id}/generate-feedback` API
+- [ ] 既存の `session_feedback` + `feedback_metrics` に保存
+
+#### Phase 7-3: VOICEVOX TTS
+- [ ] VOICEVOX Docker 追加（`docker-compose.yml`）
+- [ ] TTS サービス（`services/ai/tts_service.py`）
+- [ ] キャラクター音声設定
+
+#### Phase 7-4: 会話 API
+- [ ] 会話プロンプト（面接 / プレゼン用）
+- [ ] 会話サービス（`services/ai/conversation_service.py`）
+- [ ] `POST /conversation/message` エンドポイント
+
+### Phase 8: AudienceRoom 統合
+
+#### Phase 8-1: Frontend STT
+- [ ] `useSpeechRecognition` フック（Web Speech API）
+- [ ] 無音検知による発話終了検出
+- [ ] リアルタイム文字起こし表示
+
+#### Phase 8-2: 会話通信
+- [ ] `useConversation` フック（REST API）
+- [ ] SessionRoom に統合
+- [ ] VOICEVOX 音声の再生
+
+#### Phase 8-3: 会話 UI
+- [ ] 参加者情報の表示
+- [ ] 会話ログの表示
+- [ ] ターン管理（誰が話しているか）
+
+#### Phase 8-4: 将来拡張（WebSocket）
+- [ ] リアルタイムストリーミング応答
+- [ ] LLM ストリーミング + 逐次 TTS
 
 ### Phase 9: 仕上げ
 - [ ] E2E テスト
