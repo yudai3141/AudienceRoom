@@ -25,7 +25,7 @@ vi.mock("firebase/auth", () => ({
 }));
 
 vi.mock("@/lib/firebase", () => ({
-  auth: {},
+  getFirebaseAuth: () => ({}),
 }));
 
 const mockLoginToBackend = vi.fn();
