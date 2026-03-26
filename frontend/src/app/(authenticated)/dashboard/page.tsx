@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
 import { DashboardStats } from "@/features/dashboard/components/DashboardStats";
 import { RecentSessions } from "@/features/dashboard/components/RecentSessions";
+import { WelcomeCard } from "@/features/dashboard/components/WelcomeCard";
 import { Button, Spinner } from "@/components/ui";
 
 export default function DashboardPage() {
@@ -17,16 +18,32 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        ダッシュボードの読み込みに失敗しました
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            ダッシュボード
+          </h1>
+        </div>
+        <WelcomeCard />
       </div>
     );
   }
 
-  if (!data) {
-    return null;
+  const isNewUser = data.total_sessions === 0;
+
+  if (isNewUser) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            ダッシュボード
+          </h1>
+        </div>
+        <WelcomeCard />
+      </div>
+    );
   }
 
   return (
