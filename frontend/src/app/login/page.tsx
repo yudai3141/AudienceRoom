@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { LoginForm } from "@/features/auth/components/LoginForm";
 import { Spinner } from "@/components/ui";
 
 export default function LoginPage() {
@@ -23,10 +24,14 @@ export default function LoginPage() {
     );
   }
 
+  if (user) {
+    return null;
+  }
+
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 text-center">
-        <div>
+    <div className="flex flex-1 items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             AudienceRoom
           </h1>
@@ -34,7 +39,8 @@ export default function LoginPage() {
             人前で話す練習を、もっとリアルに。
           </p>
         </div>
-        <p className="text-slate-400">Phase 6-1 で LoginForm を実装予定</p>
+
+        <LoginForm />
       </div>
     </div>
   );
