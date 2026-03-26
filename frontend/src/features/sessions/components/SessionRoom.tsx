@@ -176,15 +176,14 @@ function VideoPreview({
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-900">
-      {videoEnabled ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="h-full w-full object-cover"
-        />
-      ) : (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`h-full w-full object-cover ${videoEnabled ? "" : "hidden"}`}
+      />
+      {!videoEnabled && (
         <div className="flex h-full w-full items-center justify-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-700">
             <svg
