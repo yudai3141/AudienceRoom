@@ -317,25 +317,31 @@ Database (PostgreSQL)
 ## 9. Tech Stack
 
 ### 9.1 Frontend
-- React / Next.js or similar
-- Zoom-like practice UI
-- Camera / microphone controls
+- Next.js 16 (App Router / TypeScript)
+- Tailwind CSS v4
+- openapi-fetch（型安全な API クライアント）
+- openapi-typescript（OpenAPI → TypeScript 型自動生成）
 
 ### 9.2 Backend
 - FastAPI
 - SQLAlchemy 2.x
 - Alembic
-- PostgreSQL
+- PostgreSQL 16
+- firebase-admin SDK
 
 ### 9.3 Authentication
 - Firebase Authentication
-- Google Login
-- Apple Login
+- Firebase Auth Emulator（ローカル開発）
 
 ### 9.4 Infrastructure
 - Docker / Docker Compose
-- Local PostgreSQL
-- Cloud SQL for PostgreSQL (production)
+- Firebase Emulator Suite
+- Cloud Run + Cloud SQL for PostgreSQL（本番想定）
+
+### 9.5 CI/CD
+- GitHub Actions
+  - Backend CI（pytest + Firebase Emulator）
+  - OpenAPI Schema Check（spec と型の一致検証）
 
 ---
 
@@ -344,6 +350,7 @@ Database (PostgreSQL)
 ### 10.1 Prerequisites
 - Docker
 - Docker Compose
+- Node.js 20+（ローカル実行時）
 - Python 3.11+（ローカル実行時）
 
 ### 10.2 Start
@@ -353,11 +360,33 @@ Database (PostgreSQL)
 docker compose up --build
 ```
 
+以下のサービスが起動します。
+
+| サービス | URL | 説明 |
+|---|---|---|
+| Frontend | http://localhost:3000 | Next.js |
+| Backend | http://localhost:8000 | FastAPI |
+| DB | localhost:5432 | PostgreSQL |
+| Firebase Emulator | http://localhost:9099 | Auth Emulator |
+| Firebase Emulator UI | http://localhost:4000 | Emulator 管理画面 |
+
 ### 10.3 Health Check
-バックエンド起動後、以下にアクセスします。
 
 ```text
 http://localhost:8000/health
+http://localhost:8000/health/db
+```
+
+### 10.4 API Docs
+
+```text
+http://localhost:8000/docs
+```
+
+### 10.5 OpenAPI 型生成
+
+```bash
+make generate-api
 ```
 
 ---
@@ -365,71 +394,97 @@ http://localhost:8000/health
 ## 11. Project Structure
 
 ```text
-backend/
-├── app
-│   ├── api
-│   │   └── routes
-│   ├── core
-│   ├── db
-│   │   ├── migrations
-│   │   └── models
-│   ├── repositories
-│   ├── schemas
-│   ├── services
-│   └── main.py
-├── Dockerfile
-├── pyproject.toml
-└── tests
+AudienceRoom/
+├── frontend/
+│   ├── src/
+│   │   ├── app/            # Next.js App Router（routing only）
+│   │   ├── features/       # Feature logic
+│   │   ├── components/     # Reusable UI components
+│   │   ├── lib/api/        # API client + generated types
+│   │   ├── hooks/          # Reusable hooks
+│   │   └── types/          # Manual types
+│   ├── Dockerfile
+│   └── package.json
+├── backend/
+│   ├── app/
+│   │   ├── api/routes/     # FastAPI routes
+│   │   ├── core/           # Config / Auth / Firebase
+│   │   ├── db/
+│   │   │   ├── models/     # SQLAlchemy models
+│   │   │   └── migrations/ # Alembic migrations
+│   │   ├── repositories/   # DB access layer
+│   │   ├── schemas/        # Request / response schemas
+│   │   ├── services/       # Business logic
+│   │   └── main.py
+│   ├── scripts/            # Utility scripts
+│   ├── tests/
+│   ├── Dockerfile
+│   └── pyproject.toml
+├── firebase/
+│   ├── firebase.json       # Emulator config
+│   └── Dockerfile
+├── .github/workflows/      # CI workflows
+├── docker-compose.yml
+├── Makefile
+├── openapi.json            # Auto-generated OpenAPI spec
+├── README.md
+└── AGENTS.md
 ```
-
-### 11.1 Directory Roles
-
-| Directory | Role |
-|---|---|
-| `app/api/routes` | FastAPI routes |
-| `app/core` | Config / settings |
-| `app/db/models` | SQLAlchemy models |
-| `app/db/migrations` | Alembic migrations |
-| `app/repositories` | DB access layer |
-| `app/services` | Business logic |
-| `app/schemas` | Request / response schemas |
-| `tests` | Test code |
 
 ---
 
 ## 12. Development Roadmap
 
-### 12.1 Phase 1
-- [x] Backend project structure
-- [x] Docker setup
+### Phase 1: Backend 基盤 ✅
+- [x] Backend project structure + Docker setup
+- [x] DB 接続（SQLAlchemy + PostgreSQL）
+- [x] Alembic 初期化
 - [x] Health check endpoint
-- [ ] DB connection setup
-- [ ] Alembic initialization
 
-### 12.2 Phase 2
-- [ ] `users` table
-- [ ] Firebase Auth integration
-- [ ] User creation / sync API
+### Phase 2: Core Tables ✅
+- [x] `users` テーブル + CRUD API
+- [x] `ai_characters` テーブル + CRUD API
+- [x] `practice_sessions` テーブル + CRUD API + ステータス遷移
+- [x] `session_participants` テーブル + CRUD API（一括登録対応）
 
-### 12.3 Phase 3
-- [ ] `practice_sessions`
-- [ ] `ai_characters`
-- [ ] `session_participants`
-- [ ] Session creation flow
+### Phase 3: Session Data Tables ✅
+- [x] `session_messages` テーブル + CRUD API
+- [x] `session_feedback` テーブル + CRUD API
+- [x] `feedback_metrics` テーブル + CRUD API（一括登録対応）
 
-### 12.4 Phase 4
-- [ ] `session_messages`
-- [ ] `session_feedback`
-- [ ] `feedback_metrics`
+### Phase 4: 認証・API 拡張 ✅
+- [x] Firebase Authentication 導入（firebase-admin SDK）
+- [x] Firebase Auth Emulator（Docker 統合）
+- [x] `POST /auth/login`（token 検証 → ユーザ取得 or 作成）
+- [x] `GET /users/me`（認証済みユーザ情報取得）
+- [x] OpenAPI → TypeScript 型自動生成パイプライン
+- [x] CI: OpenAPI spec と型の一致チェック
 
-### 12.5 Phase 5
-- [ ] Frontend integration
-- [ ] Practice room UI
-- [ ] Feedback screen
-- [ ] Learning history screen
+### Phase 5: API 拡張 ✅
+- [x] セッション詳細統合 API（participants + messages + feedback + metrics）
+- [x] セッション一覧ページネーション + FB 有無フラグ
+- [x] ダッシュボード用サマリー API
+- [x] SessionParticipant に AI キャラ情報ネスト
 
----
+### Phase 6: Frontend UI 🔜
+- [ ] ログイン画面（Firebase Client SDK）
+- [ ] ダッシュボード画面
+- [ ] セッション作成フロー（設定画面）
+- [ ] 履歴一覧画面
+- [ ] セッション詳細 / フィードバック表示画面
 
-## 13. Notes
-この README は現時点の設計メモを元にした初期版です。  
-今後、実装に合わせて更新していきます。
+### Phase 7: AI 連携
+- [ ] FB 生成 API（会話ログ → AI フィードバック生成）
+- [ ] プロンプト設計
+- [ ] OpenAI / Gemini 等の接続
+
+### Phase 8: AudienceRoom（練習画面）
+- [ ] Zoom 風 UI
+- [ ] カメラ / マイク制御
+- [ ] リアルタイム会話（WebSocket / WebRTC）
+- [ ] AI キャラとの対話
+
+### Phase 9: 仕上げ
+- [ ] E2E テスト
+- [ ] パフォーマンス最適化
+- [ ] 本番デプロイ（Cloud Run + Cloud SQL）
