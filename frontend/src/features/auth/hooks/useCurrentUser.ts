@@ -18,5 +18,7 @@ export function useCurrentUser() {
       return data;
     },
     enabled: !loading && !!user,
+    retry: 2,
+    staleTime: 1000 * 60 * 5,
   });
 }
