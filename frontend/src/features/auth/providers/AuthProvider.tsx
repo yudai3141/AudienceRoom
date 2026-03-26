@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const authRef = useRef<Auth | null>(null);
+  const userRef = useRef<User | null>(null);
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -46,12 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authRef.current = auth;
 
     setTokenGetter(async () => {
-      const currentUser = auth.currentUser;
+      const currentUser = userRef.current;
       if (!currentUser) return null;
       return currentUser.getIdToken();
     });
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      userRef.current = firebaseUser;
       setUser(firebaseUser);
       setLoading(false);
     });
@@ -66,9 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getIdToken = useCallback(async () => {
-    const auth = authRef.current;
-    if (!auth) return null;
-    const currentUser = auth.currentUser;
+    const currentUser = userRef.current;
     if (!currentUser) return null;
     return currentUser.getIdToken();
   }, []);
