@@ -6,12 +6,14 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.practice_session import (
     DashboardResponse,
+    FeedbackGenerationResponse,
     PaginatedSessionListResponse,
     PracticeSessionCreateRequest,
     PracticeSessionDetailResponse,
     PracticeSessionResponse,
     PracticeSessionStatusUpdateRequest,
 )
+from app.services.ai.feedback_generator import FeedbackGenerator
 from app.services.practice_session_service import PracticeSessionService
 
 router = APIRouter()
@@ -108,3 +110,27 @@ def get_dashboard(
 ) -> DashboardResponse:
     service = PracticeSessionService(db)
     return service.get_dashboard(current_user.id)
+
+
+@router.post(
+    "/practice-sessions/{session_id}/generate-feedback",
+    response_model=FeedbackGenerationResponse,
+)
+async def generate_feedback(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> FeedbackGenerationResponse:
+    """Generate AI feedback for a completed practice session."""
+    generator = FeedbackGenerator(db)
+    try:
+        result = await generator.generate_feedback(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return FeedbackGenerationResponse(
+        session_id=session_id,
+        feedback_id=result.feedback.id,
+        overall_score=result.overall_score,
+        summary_title=result.feedback.summary_title,
+        short_comment=result.feedback.short_comment,
+    )

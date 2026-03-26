@@ -52,5 +52,11 @@ services:
       - "9099:9099"
       - "4000:4000"
 
+  voicevox:
+    image: voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+    container_name: audienceroom-voicevox
+    ports:
+      - "50021:50021"
+
 volumes:
   postgres_data:

@@ -17,6 +17,17 @@ class Settings:
 
     FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "demo-audienceroom")
 
+    # LLM Settings
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")
+    GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    # VOICEVOX Settings
+    VOICEVOX_HOST: str = os.getenv("VOICEVOX_HOST", "voicevox")
+    VOICEVOX_PORT: int = int(os.getenv("VOICEVOX_PORT", "50021"))
+
     @property
     def DATABASE_URL(self) -> str:
         return (
