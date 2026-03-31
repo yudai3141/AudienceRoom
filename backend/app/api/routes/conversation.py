@@ -1,32 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.schemas.conversation import (
+    ConversationMessageRequest,
+    ConversationResponse,
+    ConversationStartRequest,
+)
 from app.services.ai.conversation_service import ConversationService
 
-router = APIRouter()
+router = APIRouter(prefix="/conversation", tags=["conversation"])
 
 
-class ConversationMessageRequest(BaseModel):
-    session_id: int
-    message: str
-    generate_audio: bool = True
-
-
-class ConversationStartRequest(BaseModel):
-    session_id: int
-    generate_audio: bool = True
-
-
-class ConversationResponse(BaseModel):
-    text: str
-    audio_base64: str | None = None
-    speaker_id: int | None = None
-    participant_id: int | None = None
-
-
-@router.post("/conversation/message", response_model=ConversationResponse)
+@router.post("/message", response_model=ConversationResponse)
 async def send_message(
     body: ConversationMessageRequest,
     db: Session = Depends(get_db),
@@ -55,7 +41,7 @@ async def send_message(
     )
 
 
-@router.post("/conversation/start", response_model=ConversationResponse)
+@router.post("/start", response_model=ConversationResponse)
 async def start_conversation(
     body: ConversationStartRequest,
     db: Session = Depends(get_db),

@@ -9,11 +9,11 @@ from app.schemas.feedback_metric import (
 )
 from app.services.feedback_metric_service import FeedbackMetricService
 
-router = APIRouter()
+router = APIRouter(prefix="/feedback-metrics", tags=["feedback-metrics"])
 
 
 @router.post(
-    "/feedback-metrics", response_model=FeedbackMetricResponse, status_code=201
+    "", response_model=FeedbackMetricResponse, status_code=201
 )
 def create_feedback_metric(
     body: FeedbackMetricCreateRequest,
@@ -31,7 +31,7 @@ def create_feedback_metric(
 
 
 @router.post(
-    "/feedback-metrics/bulk",
+    "/bulk",
     response_model=list[FeedbackMetricResponse],
     status_code=201,
 )
@@ -44,7 +44,7 @@ def create_feedback_metrics_bulk(
     return [FeedbackMetricResponse.model_validate(m) for m in metrics]
 
 
-@router.get("/feedback-metrics", response_model=list[FeedbackMetricResponse])
+@router.get("", response_model=list[FeedbackMetricResponse])
 def list_feedback_metrics(
     feedback_id: int = Query(...),
     db: Session = Depends(get_db),
@@ -55,7 +55,7 @@ def list_feedback_metrics(
 
 
 @router.get(
-    "/feedback-metrics/{metric_id}", response_model=FeedbackMetricResponse
+    "/{metric_id}", response_model=FeedbackMetricResponse
 )
 def get_feedback_metric(
     metric_id: int,

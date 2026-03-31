@@ -25,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Routers (prefix is defined in each router) ---
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(users_router)

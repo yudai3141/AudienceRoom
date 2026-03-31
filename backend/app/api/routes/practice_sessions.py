@@ -1,11 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user
-from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.practice_session import (
-    DashboardResponse,
     FeedbackGenerationResponse,
     PaginatedSessionListResponse,
     PracticeSessionCreateRequest,
@@ -16,12 +13,10 @@ from app.schemas.practice_session import (
 from app.services.ai.feedback_generator import FeedbackGenerator
 from app.services.practice_session_service import PracticeSessionService
 
-router = APIRouter()
+router = APIRouter(prefix="/practice-sessions", tags=["practice-sessions"])
 
 
-@router.post(
-    "/practice-sessions", response_model=PracticeSessionResponse, status_code=201
-)
+@router.post("", response_model=PracticeSessionResponse, status_code=201)
 def create_practice_session(
     body: PracticeSessionCreateRequest,
     db: Session = Depends(get_db),
@@ -46,7 +41,7 @@ def create_practice_session(
     return PracticeSessionResponse.model_validate(session)
 
 
-@router.get("/practice-sessions", response_model=PaginatedSessionListResponse)
+@router.get("", response_model=PaginatedSessionListResponse)
 def list_practice_sessions(
     user_id: int = Query(...),
     limit: int = Query(20, ge=1, le=100),
@@ -58,7 +53,7 @@ def list_practice_sessions(
 
 
 @router.get(
-    "/practice-sessions/{session_id}/detail",
+    "/{session_id}/detail",
     response_model=PracticeSessionDetailResponse,
 )
 def get_practice_session_detail(
@@ -73,7 +68,7 @@ def get_practice_session_detail(
 
 
 @router.get(
-    "/practice-sessions/{session_id}", response_model=PracticeSessionResponse
+    "/{session_id}", response_model=PracticeSessionResponse
 )
 def get_practice_session(
     session_id: int,
@@ -87,7 +82,7 @@ def get_practice_session(
 
 
 @router.patch(
-    "/practice-sessions/{session_id}/status",
+    "/{session_id}/status",
     response_model=PracticeSessionResponse,
 )
 def update_practice_session_status(
@@ -103,17 +98,8 @@ def update_practice_session_status(
     return PracticeSessionResponse.model_validate(session)
 
 
-@router.get("/users/me/dashboard", response_model=DashboardResponse)
-def get_dashboard(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> DashboardResponse:
-    service = PracticeSessionService(db)
-    return service.get_dashboard(current_user.id)
-
-
 @router.post(
-    "/practice-sessions/{session_id}/generate-feedback",
+    "/{session_id}/generate-feedback",
     response_model=FeedbackGenerationResponse,
 )
 async def generate_feedback(
