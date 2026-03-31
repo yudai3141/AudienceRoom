@@ -58,6 +58,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create User */
+        post: operations["create_user_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/me": {
         parameters: {
             query?: never;
@@ -75,17 +92,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/users": {
+    "/users/me/dashboard": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Dashboard */
+        get: operations["get_dashboard_users_me_dashboard_get"];
         put?: never;
-        /** Create User */
-        post: operations["create_user_users_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -194,23 +211,6 @@ export interface paths {
         head?: never;
         /** Update Practice Session Status */
         patch: operations["update_practice_session_status_practice_sessions__session_id__status_patch"];
-        trace?: never;
-    };
-    "/users/me/dashboard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Dashboard */
-        get: operations["get_dashboard_users_me_dashboard_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/practice-sessions/{session_id}/generate-feedback": {
@@ -1055,26 +1055,6 @@ export interface operations {
             };
         };
     };
-    get_me_users_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-        };
-    };
     create_user_users_post: {
         parameters: {
             query?: never;
@@ -1104,6 +1084,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_me_users_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    get_dashboard_users_me_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardResponse"];
                 };
             };
         };
@@ -1351,26 +1371,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_dashboard_users_me_dashboard_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardResponse"];
                 };
             };
         };
