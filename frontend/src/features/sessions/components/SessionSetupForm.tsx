@@ -15,15 +15,14 @@ const sessionModes = [
   { value: "presentation", label: "プレゼン練習" },
 ] as const;
 
-const participantCounts = [
-  { value: 1, label: "1人" },
-  { value: 2, label: "2人" },
-  { value: 3, label: "3人" },
-] as const;
+const participantCounts = Array.from({ length: 10 }, (_, i) => ({
+  value: i + 1,
+  label: `${i + 1}人`,
+}));
 
 const sessionSchema = z.object({
   mode: z.enum(["interview", "presentation"]),
-  participantCount: z.number().min(1).max(3),
+  participantCount: z.number().min(1).max(10),
   theme: z.string().optional(),
   userGoal: z.string().optional(),
   userConcerns: z.string().optional(),
@@ -164,11 +163,11 @@ export function SessionSetupForm() {
               : "聴衆の人数を選択"}
           </p>
 
-          <div className="mt-4 flex gap-4">
+          <div className="mt-4 grid grid-cols-5 gap-3">
             {participantCounts.map((count) => (
               <label
                 key={count.value}
-                className={`relative flex cursor-pointer items-center justify-center rounded-lg border px-6 py-3 transition-colors ${
+                className={`relative flex cursor-pointer items-center justify-center rounded-lg border px-4 py-3 transition-colors ${
                   selectedParticipantCount === count.value
                     ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600"
                     : "border-slate-200 hover:border-slate-300"

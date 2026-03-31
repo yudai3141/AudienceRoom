@@ -1767,6 +1767,8 @@
           },
           "participant_count": {
             "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
             "title": "Participant Count"
           },
           "feedback_enabled": {

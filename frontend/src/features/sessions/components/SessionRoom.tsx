@@ -587,6 +587,7 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     messages,
     isProcessing,
     isSpeaking,
+    speakingParticipantId,
     error: conversationError,
     sendMessage,
     startConversation,
@@ -754,11 +755,11 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
 
   const participantElements =
     participants.length > 0
-      ? participants.map((participant, index) => (
+      ? participants.map((participant) => (
           <ParticipantPlaceholder
             key={participant.id}
             name={participant.display_name}
-            isSpeaking={isSpeaking && index === 0}
+            isSpeaking={speakingParticipantId === participant.id}
           />
         ))
       : Array.from({ length: participantCount }, (_, index) => (

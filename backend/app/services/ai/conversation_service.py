@@ -1,4 +1,5 @@
 import logging
+import random
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -78,20 +79,17 @@ class ConversationService:
         conversation_history.append({"role": "user", "content": user_message})
 
         participants = self._participant_repo.list_by_session_id(session_id)
-        host_participant = next(
-            (p for p in participants if p.role == "host"),
-            participants[0] if participants else None,
-        )
+        speaker = self._pick_random_participant(participants)
 
         ai_response = await self._generate_response(
             session=session,
             conversation_history=conversation_history,
-            participant=host_participant,
+            participant=speaker,
         )
 
         ai_msg = SessionMessage(
             session_id=session_id,
-            participant_id=host_participant.id if host_participant else None,
+            participant_id=speaker.id if speaker else None,
             sequence_no=next_seq + 1,
             content=ai_response,
         )
@@ -102,11 +100,12 @@ class ConversationService:
 
         if generate_audio:
             try:
-                character_name = self._get_character_voice(host_participant)
+                character_name = self._get_character_voice(speaker)
                 speaker_id = VOICEVOX_SPEAKERS.get(character_name, 3)
                 tts_result = await self._tts.synthesize(
                     text=ai_response,
                     speaker_id=speaker_id,
+                    speed_scale=1.3,
                 )
                 audio_base64 = tts_result.audio_base64
             except Exception as e:
@@ -116,7 +115,7 @@ class ConversationService:
             text=ai_response,
             audio_base64=audio_base64,
             speaker_id=speaker_id,
-            participant_id=host_participant.id if host_participant else None,
+            participant_id=speaker.id if speaker else None,
         )
 
     async def start_conversation(
@@ -143,20 +142,23 @@ class ConversationService:
             self._db.commit()
 
         participants = self._participant_repo.list_by_session_id(session_id)
-        host_participant = next(
-            (p for p in participants if p.role == "host"),
-            participants[0] if participants else None,
+        speaker = self._pick_random_participant(participants)
+
+        start_message = (
+            "プレゼンを始めてください。"
+            if session.mode == "presentation"
+            else "面接を始めてください。"
         )
 
         ai_response = await self._generate_response(
             session=session,
-            conversation_history=[{"role": "user", "content": "面接を始めてください。"}],
-            participant=host_participant,
+            conversation_history=[{"role": "user", "content": start_message}],
+            participant=speaker,
         )
 
         ai_msg = SessionMessage(
             session_id=session_id,
-            participant_id=host_participant.id if host_participant else None,
+            participant_id=speaker.id if speaker else None,
             sequence_no=1,
             content=ai_response,
         )
@@ -167,11 +169,12 @@ class ConversationService:
 
         if generate_audio:
             try:
-                character_name = self._get_character_voice(host_participant)
+                character_name = self._get_character_voice(speaker)
                 speaker_id = VOICEVOX_SPEAKERS.get(character_name, 3)
                 tts_result = await self._tts.synthesize(
                     text=ai_response,
                     speaker_id=speaker_id,
+                    speed_scale=1.3,
                 )
                 audio_base64 = tts_result.audio_base64
             except Exception as e:
@@ -181,8 +184,14 @@ class ConversationService:
             text=ai_response,
             audio_base64=audio_base64,
             speaker_id=speaker_id,
-            participant_id=host_participant.id if host_participant else None,
+            participant_id=speaker.id if speaker else None,
         )
+
+    def _pick_random_participant(self, participants):
+        """Pick a random participant from the list."""
+        if not participants:
+            return None
+        return random.choice(participants)
 
     def _build_conversation_history(
         self, messages: list[SessionMessage]
