@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.db.models.practice_session import PracticeSession, SESSION_MODES, SESSION_STATUSES
+from app.db.models.session_participant import SessionParticipant
+from app.repositories.ai_character_repository import AiCharacterRepository
 from app.repositories.feedback_metric_repository import FeedbackMetricRepository
 from app.repositories.practice_session_repository import PracticeSessionRepository
 from app.repositories.session_feedback_repository import SessionFeedbackRepository
@@ -65,7 +67,38 @@ class PracticeSessionService:
             session_brief=session_brief,
             target_context=target_context,
         )
-        return self._repository.create(session)
+        session = self._repository.create(session)
+
+        self._assign_participants(session.id, participant_count)
+
+        return session
+
+    def _assign_participants(self, session_id: int, participant_count: int) -> None:
+        character_repo = AiCharacterRepository(self._db)
+        participant_repo = SessionParticipantRepository(self._db)
+
+        characters = character_repo.list_active()
+        if not characters:
+            return
+
+        assign_count = min(participant_count, len(characters))
+        participants = []
+        for i in range(assign_count):
+            character = characters[i]
+            role = "host" if i == 0 else "audience"
+            display_name = f"面接官{i + 1}" if participant_count > 1 else "面接官"
+            participants.append(
+                SessionParticipant(
+                    session_id=session_id,
+                    ai_character_id=character.id,
+                    display_name=display_name,
+                    role=role,
+                    seat_index=i,
+                )
+            )
+
+        if participants:
+            participant_repo.bulk_create(participants)
 
     def get_session(self, session_id: int) -> PracticeSession | None:
         return self._repository.get_by_id(session_id)

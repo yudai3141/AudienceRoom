@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.feedback_metric import FeedbackMetricResponse
 from app.schemas.session_message import SessionMessageResponse
@@ -11,7 +11,7 @@ from app.schemas.session_participant import SessionParticipantResponse
 class PracticeSessionCreateRequest(BaseModel):
     user_id: int
     mode: str
-    participant_count: int
+    participant_count: int = Field(..., ge=1, le=10)
     feedback_enabled: bool = True
     theme: str | None = None
     presentation_duration_sec: int | None = None

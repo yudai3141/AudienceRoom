@@ -15,6 +15,7 @@ type ConversationState = {
   messages: Message[];
   isProcessing: boolean;
   isSpeaking: boolean;
+  speakingParticipantId: number | null;
   error: string | null;
 };
 
@@ -31,6 +32,7 @@ export function useConversation(options: UseConversationOptions) {
     messages: [],
     isProcessing: false,
     isSpeaking: false,
+    speakingParticipantId: null,
     error: null,
   });
 
@@ -42,7 +44,7 @@ export function useConversation(options: UseConversationOptions) {
     return `msg-${Date.now()}-${messageIdRef.current}`;
   }, []);
 
-  const playAudio = useCallback((base64Audio: string): Promise<void> => {
+  const playAudio = useCallback((base64Audio: string, participantId?: number | null): Promise<void> => {
     return new Promise((resolve, reject) => {
       try {
         if (audioRef.current) {
@@ -53,21 +55,21 @@ export function useConversation(options: UseConversationOptions) {
         const audio = new Audio(`data:audio/wav;base64,${base64Audio}`);
         audioRef.current = audio;
 
-        setState((prev) => ({ ...prev, isSpeaking: true }));
+        setState((prev) => ({ ...prev, isSpeaking: true, speakingParticipantId: participantId ?? null }));
 
         audio.onended = () => {
-          setState((prev) => ({ ...prev, isSpeaking: false }));
+          setState((prev) => ({ ...prev, isSpeaking: false, speakingParticipantId: null }));
           resolve();
         };
 
         audio.onerror = () => {
-          setState((prev) => ({ ...prev, isSpeaking: false }));
+          setState((prev) => ({ ...prev, isSpeaking: false, speakingParticipantId: null }));
           reject(new Error("音声の再生に失敗しました"));
         };
 
         audio.play().catch(reject);
       } catch (error) {
-        setState((prev) => ({ ...prev, isSpeaking: false }));
+        setState((prev) => ({ ...prev, isSpeaking: false, speakingParticipantId: null }));
         reject(error);
       }
     });
@@ -77,7 +79,7 @@ export function useConversation(options: UseConversationOptions) {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
-      setState((prev) => ({ ...prev, isSpeaking: false }));
+      setState((prev) => ({ ...prev, isSpeaking: false, speakingParticipantId: null }));
     }
   }, []);
 
@@ -129,7 +131,7 @@ export function useConversation(options: UseConversationOptions) {
         onAiResponse?.(aiMessage);
 
         if (data.audio_base64) {
-          await playAudio(data.audio_base64);
+          await playAudio(data.audio_base64, data.participant_id);
         }
       } catch (error) {
         setState((prev) => ({
@@ -179,7 +181,7 @@ export function useConversation(options: UseConversationOptions) {
       onAiResponse?.(aiMessage);
 
       if (data.audio_base64) {
-        await playAudio(data.audio_base64);
+        await playAudio(data.audio_base64, data.participant_id);
       }
     } catch (error) {
       setState((prev) => ({
