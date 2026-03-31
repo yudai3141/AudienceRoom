@@ -5,10 +5,10 @@ from app.db.session import get_db
 from app.schemas.ai_character import AiCharacterCreateRequest, AiCharacterResponse
 from app.services.ai_character_service import AiCharacterService
 
-router = APIRouter()
+router = APIRouter(prefix="/ai-characters", tags=["ai-characters"])
 
 
-@router.post("/ai-characters", response_model=AiCharacterResponse, status_code=201)
+@router.post("", response_model=AiCharacterResponse, status_code=201)
 def create_ai_character(
     body: AiCharacterCreateRequest,
     db: Session = Depends(get_db),
@@ -29,7 +29,7 @@ def create_ai_character(
     return AiCharacterResponse.model_validate(character)
 
 
-@router.get("/ai-characters", response_model=list[AiCharacterResponse])
+@router.get("", response_model=list[AiCharacterResponse])
 def list_ai_characters(
     db: Session = Depends(get_db),
 ) -> list[AiCharacterResponse]:
@@ -38,7 +38,7 @@ def list_ai_characters(
     return [AiCharacterResponse.model_validate(c) for c in characters]
 
 
-@router.get("/ai-characters/{character_id}", response_model=AiCharacterResponse)
+@router.get("/{character_id}", response_model=AiCharacterResponse)
 def get_ai_character(
     character_id: int,
     db: Session = Depends(get_db),

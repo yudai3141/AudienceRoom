@@ -7,6 +7,9 @@
   "paths": {
     "/health": {
       "get": {
+        "tags": [
+          "health"
+        ],
         "summary": "Health Check",
         "operationId": "health_check_health_get",
         "responses": {
@@ -23,6 +26,9 @@
     },
     "/health/db": {
       "get": {
+        "tags": [
+          "health"
+        ],
         "summary": "Health Check Db",
         "operationId": "health_check_db_health_db_get",
         "responses": {
@@ -39,6 +45,9 @@
     },
     "/auth/login": {
       "post": {
+        "tags": [
+          "auth"
+        ],
         "summary": "Login",
         "description": "Verify Firebase token, get or create the user, and return profile.",
         "operationId": "login_auth_login_post",
@@ -81,31 +90,11 @@
         ]
       }
     },
-    "/users/me": {
-      "get": {
-        "summary": "Get Me",
-        "operationId": "get_me_users_me_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/users": {
       "post": {
+        "tags": [
+          "users"
+        ],
         "summary": "Create User",
         "operationId": "create_user_users_post",
         "requestBody": {
@@ -142,8 +131,63 @@
         }
       }
     },
+    "/users/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get Me",
+        "operationId": "get_me_users_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/users/me/dashboard": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get Dashboard",
+        "operationId": "get_dashboard_users_me_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/ai-characters": {
       "get": {
+        "tags": [
+          "ai-characters"
+        ],
         "summary": "List Ai Characters",
         "operationId": "list_ai_characters_ai_characters_get",
         "responses": {
@@ -164,6 +208,9 @@
         }
       },
       "post": {
+        "tags": [
+          "ai-characters"
+        ],
         "summary": "Create Ai Character",
         "operationId": "create_ai_character_ai_characters_post",
         "requestBody": {
@@ -202,6 +249,9 @@
     },
     "/ai-characters/{character_id}": {
       "get": {
+        "tags": [
+          "ai-characters"
+        ],
         "summary": "Get Ai Character",
         "operationId": "get_ai_character_ai_characters__character_id__get",
         "parameters": [
@@ -241,6 +291,9 @@
     },
     "/practice-sessions": {
       "post": {
+        "tags": [
+          "practice-sessions"
+        ],
         "summary": "Create Practice Session",
         "operationId": "create_practice_session_practice_sessions_post",
         "requestBody": {
@@ -277,6 +330,9 @@
         }
       },
       "get": {
+        "tags": [
+          "practice-sessions"
+        ],
         "summary": "List Practice Sessions",
         "operationId": "list_practice_sessions_practice_sessions_get",
         "parameters": [
@@ -339,6 +395,9 @@
     },
     "/practice-sessions/{session_id}/detail": {
       "get": {
+        "tags": [
+          "practice-sessions"
+        ],
         "summary": "Get Practice Session Detail",
         "operationId": "get_practice_session_detail_practice_sessions__session_id__detail_get",
         "parameters": [
@@ -378,6 +437,9 @@
     },
     "/practice-sessions/{session_id}": {
       "get": {
+        "tags": [
+          "practice-sessions"
+        ],
         "summary": "Get Practice Session",
         "operationId": "get_practice_session_practice_sessions__session_id__get",
         "parameters": [
@@ -417,6 +479,9 @@
     },
     "/practice-sessions/{session_id}/status": {
       "patch": {
+        "tags": [
+          "practice-sessions"
+        ],
         "summary": "Update Practice Session Status",
         "operationId": "update_practice_session_status_practice_sessions__session_id__status_patch",
         "parameters": [
@@ -464,31 +529,11 @@
         }
       }
     },
-    "/users/me/dashboard": {
-      "get": {
-        "summary": "Get Dashboard",
-        "operationId": "get_dashboard_users_me_dashboard_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DashboardResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/practice-sessions/{session_id}/generate-feedback": {
       "post": {
+        "tags": [
+          "practice-sessions"
+        ],
         "summary": "Generate Feedback",
         "description": "Generate AI feedback for a completed practice session.",
         "operationId": "generate_feedback_practice_sessions__session_id__generate_feedback_post",
@@ -529,6 +574,9 @@
     },
     "/session-participants": {
       "post": {
+        "tags": [
+          "session-participants"
+        ],
         "summary": "Create Session Participant",
         "operationId": "create_session_participant_session_participants_post",
         "requestBody": {
@@ -565,6 +613,9 @@
         }
       },
       "get": {
+        "tags": [
+          "session-participants"
+        ],
         "summary": "List Session Participants",
         "operationId": "list_session_participants_session_participants_get",
         "parameters": [
@@ -608,6 +659,9 @@
     },
     "/session-participants/bulk": {
       "post": {
+        "tags": [
+          "session-participants"
+        ],
         "summary": "Create Session Participants Bulk",
         "operationId": "create_session_participants_bulk_session_participants_bulk_post",
         "requestBody": {
@@ -650,6 +704,9 @@
     },
     "/session-participants/{participant_id}": {
       "get": {
+        "tags": [
+          "session-participants"
+        ],
         "summary": "Get Session Participant",
         "operationId": "get_session_participant_session_participants__participant_id__get",
         "parameters": [
@@ -689,6 +746,9 @@
     },
     "/session-messages": {
       "post": {
+        "tags": [
+          "session-messages"
+        ],
         "summary": "Create Session Message",
         "operationId": "create_session_message_session_messages_post",
         "requestBody": {
@@ -725,6 +785,9 @@
         }
       },
       "get": {
+        "tags": [
+          "session-messages"
+        ],
         "summary": "List Session Messages",
         "operationId": "list_session_messages_session_messages_get",
         "parameters": [
@@ -768,6 +831,9 @@
     },
     "/session-messages/{message_id}": {
       "get": {
+        "tags": [
+          "session-messages"
+        ],
         "summary": "Get Session Message",
         "operationId": "get_session_message_session_messages__message_id__get",
         "parameters": [
@@ -807,6 +873,9 @@
     },
     "/session-feedback": {
       "post": {
+        "tags": [
+          "session-feedback"
+        ],
         "summary": "Create Session Feedback",
         "operationId": "create_session_feedback_session_feedback_post",
         "requestBody": {
@@ -843,6 +912,9 @@
         }
       },
       "get": {
+        "tags": [
+          "session-feedback"
+        ],
         "summary": "Get Session Feedback By Session",
         "operationId": "get_session_feedback_by_session_session_feedback_get",
         "parameters": [
@@ -882,6 +954,9 @@
     },
     "/session-feedback/{feedback_id}": {
       "get": {
+        "tags": [
+          "session-feedback"
+        ],
         "summary": "Get Session Feedback",
         "operationId": "get_session_feedback_session_feedback__feedback_id__get",
         "parameters": [
@@ -921,6 +996,9 @@
     },
     "/feedback-metrics": {
       "post": {
+        "tags": [
+          "feedback-metrics"
+        ],
         "summary": "Create Feedback Metric",
         "operationId": "create_feedback_metric_feedback_metrics_post",
         "requestBody": {
@@ -957,6 +1035,9 @@
         }
       },
       "get": {
+        "tags": [
+          "feedback-metrics"
+        ],
         "summary": "List Feedback Metrics",
         "operationId": "list_feedback_metrics_feedback_metrics_get",
         "parameters": [
@@ -1000,6 +1081,9 @@
     },
     "/feedback-metrics/bulk": {
       "post": {
+        "tags": [
+          "feedback-metrics"
+        ],
         "summary": "Create Feedback Metrics Bulk",
         "operationId": "create_feedback_metrics_bulk_feedback_metrics_bulk_post",
         "requestBody": {
@@ -1042,6 +1126,9 @@
     },
     "/feedback-metrics/{metric_id}": {
       "get": {
+        "tags": [
+          "feedback-metrics"
+        ],
         "summary": "Get Feedback Metric",
         "operationId": "get_feedback_metric_feedback_metrics__metric_id__get",
         "parameters": [
@@ -1081,6 +1168,9 @@
     },
     "/conversation/message": {
       "post": {
+        "tags": [
+          "conversation"
+        ],
         "summary": "Send Message",
         "description": "Send a message to the AI and receive a response.\n\nThis endpoint processes the user's spoken message, generates an AI response\nusing the appropriate prompt for the session mode, and optionally returns\nsynthesized audio using VOICEVOX.",
         "operationId": "send_message_conversation_message_post",
@@ -1120,6 +1210,9 @@
     },
     "/conversation/start": {
       "post": {
+        "tags": [
+          "conversation"
+        ],
         "summary": "Start Conversation",
         "description": "Start a conversation and get the AI's opening message.\n\nThis endpoint generates the AI's initial greeting or prompt based on\nthe session mode and settings.",
         "operationId": "start_conversation_conversation_start_post",

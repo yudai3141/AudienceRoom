@@ -8,11 +8,11 @@ from app.schemas.session_feedback import (
 )
 from app.services.session_feedback_service import SessionFeedbackService
 
-router = APIRouter()
+router = APIRouter(prefix="/session-feedback", tags=["session-feedback"])
 
 
 @router.post(
-    "/session-feedback", response_model=SessionFeedbackResponse, status_code=201
+    "", response_model=SessionFeedbackResponse, status_code=201
 )
 def create_session_feedback(
     body: SessionFeedbackCreateRequest,
@@ -35,7 +35,7 @@ def create_session_feedback(
 
 
 @router.get(
-    "/session-feedback/{feedback_id}", response_model=SessionFeedbackResponse
+    "/{feedback_id}", response_model=SessionFeedbackResponse
 )
 def get_session_feedback(
     feedback_id: int,
@@ -49,7 +49,7 @@ def get_session_feedback(
 
 
 @router.get(
-    "/session-feedback", response_model=SessionFeedbackResponse
+    "", response_model=SessionFeedbackResponse
 )
 def get_session_feedback_by_session(
     session_id: int = Query(...),

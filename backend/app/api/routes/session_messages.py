@@ -8,11 +8,11 @@ from app.schemas.session_message import (
 )
 from app.services.session_message_service import SessionMessageService
 
-router = APIRouter()
+router = APIRouter(prefix="/session-messages", tags=["session-messages"])
 
 
 @router.post(
-    "/session-messages", response_model=SessionMessageResponse, status_code=201
+    "", response_model=SessionMessageResponse, status_code=201
 )
 def create_session_message(
     body: SessionMessageCreateRequest,
@@ -29,7 +29,7 @@ def create_session_message(
     return SessionMessageResponse.model_validate(message)
 
 
-@router.get("/session-messages", response_model=list[SessionMessageResponse])
+@router.get("", response_model=list[SessionMessageResponse])
 def list_session_messages(
     session_id: int = Query(...),
     db: Session = Depends(get_db),
@@ -40,7 +40,7 @@ def list_session_messages(
 
 
 @router.get(
-    "/session-messages/{message_id}", response_model=SessionMessageResponse
+    "/{message_id}", response_model=SessionMessageResponse
 )
 def get_session_message(
     message_id: int,

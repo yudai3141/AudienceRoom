@@ -1,16 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_firebase_user, get_current_user
-from app.db.models.user import User
+from app.core.auth import get_current_firebase_user
 from app.db.session import get_db
 from app.schemas.user import LoginRequest, UserResponse
 from app.services.user_service import UserService
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/auth/login", response_model=UserResponse, status_code=200)
+@router.post("/login", response_model=UserResponse, status_code=200)
 def login(
     body: LoginRequest,
     decoded: dict = Depends(get_current_firebase_user),
@@ -25,10 +24,3 @@ def login(
         photo_url=body.photo_url,
     )
     return UserResponse.model_validate(user)
-
-
-@router.get("/users/me", response_model=UserResponse)
-def get_me(
-    current_user: User = Depends(get_current_user),
-) -> UserResponse:
-    return UserResponse.model_validate(current_user)

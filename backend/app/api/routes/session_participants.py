@@ -9,11 +9,11 @@ from app.schemas.session_participant import (
 )
 from app.services.session_participant_service import SessionParticipantService
 
-router = APIRouter()
+router = APIRouter(prefix="/session-participants", tags=["session-participants"])
 
 
 @router.post(
-    "/session-participants",
+    "",
     response_model=SessionParticipantResponse,
     status_code=201,
 )
@@ -36,7 +36,7 @@ def create_session_participant(
 
 
 @router.post(
-    "/session-participants/bulk",
+    "/bulk",
     response_model=list[SessionParticipantResponse],
     status_code=201,
 )
@@ -55,7 +55,7 @@ def create_session_participants_bulk(
 
 
 @router.get(
-    "/session-participants",
+    "",
     response_model=list[SessionParticipantResponse],
 )
 def list_session_participants(
@@ -68,7 +68,7 @@ def list_session_participants(
 
 
 @router.get(
-    "/session-participants/{participant_id}",
+    "/{participant_id}",
     response_model=SessionParticipantResponse,
 )
 def get_session_participant(
