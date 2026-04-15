@@ -308,15 +308,67 @@ React Query / SWR 等を使用する。
 - CI で OpenAPI と生成型の差分チェック
 - API 変更 → OpenAPI 更新 → 型更新 → frontend 修正
 
+### OpenAPI 再生成の注意事項
+
+**必ず Docker 経由で実行:**
+
+```bash
+# ✅ 正しい方法（CI と同じ環境）
+docker compose run --rm --no-deps \
+  -v "$(pwd)/openapi.json:/output/openapi.json" \
+  backend python -m scripts.export_openapi /output/openapi.json
+
+# ❌ 間違った方法（ローカル Python 環境）
+python -m scripts.export_openapi openapi.json
+```
+
+**手順:**
+
+1. ルーター・スキーマ変更
+2. 上記コマンドで `openapi.json` を再生成
+3. `cd frontend && npm run generate:api` で TypeScript 型を生成
+4. `openapi.json` と `schema.gen.ts` の両方をコミット
+5. CI で差分チェックが pass することを確認
+
+**トラブルシューティング:**
+
+- `openapi.json` が空の場合: 先に `touch openapi.json` してからボリュームマウント
+- 差分が出る場合: Docker イメージのキャッシュをクリア（`docker compose build --no-cache backend`）
+- 日本語の docstring を変更した場合も必ず再生成
+
 ---
 
 ## 12. Testing Rules
 
 ### Backend
+
 - pytest
 - repository test
 - service test
 - API test
+
+#### Backend Testing Best Practices
+
+**モックのパッチパスに注意:**
+
+- `patch()` は「使用される場所」でパッチを当てる（定義された場所ではない）
+- 例: `StreamingConversationService` が `from app.services.ai.llm import get_llm_provider` でインポートしている場合
+  - ❌ `patch("app.services.ai.llm.get_llm_provider")`
+  - ✅ `patch("app.services.ai.streaming_conversation_service.get_llm_provider")`
+- API キーを必要とする外部サービス（LLM, TTS など）は必ずモックする
+- `@pytest.fixture(autouse=True)` を使用して全テストに自動適用
+- フィクスチャの依存関係を明示的にする（`service(self, mock_db, mock_llm_provider)`）
+
+**非同期テスト:**
+
+- pytest-asyncio を使用
+- `@pytest.mark.asyncio` を async テストに付与
+- `pyproject.toml` で `asyncio_mode = "auto"` を設定済み
+
+**共通フィクスチャ:**
+
+- `tests/conftest.py` に共通フィクスチャを配置
+- プロジェクト全体で再利用可能にする
 
 ### Frontend
 
@@ -326,11 +378,31 @@ React Query / SWR 等を使用する。
 2. Component Test
 3. E2E Test
 
+#### Frontend Testing Best Practices
+
+**TypeScript 型アサーション:**
+
+- `Record<string, unknown>` から値を取得する際は型アサーションが必要
+- 例:
+  ```typescript
+  const data: Record<string, unknown> = { ... };
+  const text = data.text as string;
+  const id = data.participant_id as number | undefined;
+  ```
+- より型安全にするには discriminated union を使用
+
+**SSE テスト:**
+
+- vitest を使用（`@jest/globals` ではない）
+- `ReadableStream` を使ってモックデータを作成
+- イベントの順序と内容を検証
+
 ルール:
 
 - 新機能にはテストを書く
 - main フローは E2E で担保
 - テスト失敗状態で merge 禁止
+- CI で失敗したら必ずローカルで再現・修正してから push
 
 ---
 
