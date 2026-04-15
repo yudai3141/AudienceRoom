@@ -2,6 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import { readSSEStream } from "@/lib/api/sse";
+import { baseUrl } from "@/lib/api/client";
+import { getAuth } from "firebase/auth";
 
 export type Message = {
   id: string;
@@ -182,10 +184,15 @@ export function useStreamingConversation(
       abortControllerRef.current = controller;
 
       try {
-        const response = await fetch("/conversation/message/stream", {
+        // Firebase トークンを取得
+        const auth = getAuth();
+        const token = await auth.currentUser?.getIdToken();
+
+        const response = await fetch(`${baseUrl}/conversation/message/stream`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
           body: JSON.stringify({
             session_id: sessionId,
@@ -306,10 +313,15 @@ export function useStreamingConversation(
     abortControllerRef.current = controller;
 
     try {
-      const response = await fetch("/conversation/start/stream", {
+      // Firebase トークンを取得
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+
+      const response = await fetch(`${baseUrl}/conversation/start/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
         body: JSON.stringify({
           session_id: sessionId,
