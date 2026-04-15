@@ -465,12 +465,12 @@ export interface paths {
         put?: never;
         /**
          * Send Message Stream
-         * @description Send a message and receive streaming response via Server-Sent Events.
+         * @description メッセージを送信し、Server-Sent Events経由でストリーミングレスポンスを受信する
          *
-         *     This endpoint processes the user's message and streams the AI response
-         *     in real-time, including incremental text and audio chunks.
+         *     このエンドポイントはユーザーのメッセージを処理し、AI応答を
+         *     リアルタイムでストリーミング配信します（増分テキストと音声チャンクを含む）
          *
-         *     Returns Server-Sent Events (SSE):
+         *     Server-Sent Events (SSE)を返す:
          *     - event: metadata, data: {participant_id, speaker_id}
          *     - event: text_chunk, data: {text}
          *     - event: audio_chunk, data: {audio_base64, sequence, text}
@@ -495,9 +495,9 @@ export interface paths {
         put?: never;
         /**
          * Start Conversation Stream
-         * @description Start a conversation and stream the AI's opening message via SSE.
+         * @description 会話を開始し、AIの開始メッセージをSSE経由でストリーミング配信する
          *
-         *     Returns Server-Sent Events (SSE):
+         *     Server-Sent Events (SSE)を返す:
          *     - event: metadata, data: {participant_id, speaker_id}
          *     - event: text_chunk, data: {text}
          *     - event: audio_chunk, data: {audio_base64, sequence, text}
