@@ -1,0 +1,89 @@
+%% POST /practice-sessions/{id}/generate-feedback の処理シーケンス
+
+sequenceDiagram
+    participant C as Client
+    participant R as Route
+    participant G as FeedbackGenerator
+    participant SR as PracticeSessionRepository
+    participant MR as SessionMessageRepository
+    participant FR as SessionFeedbackRepository
+    participant LLM as LLMProvider
+    participant MetR as FeedbackMetricRepository
+    participant DB as Database
+
+    C->>R: POST /practice-sessions/id/generate-feedback
+
+    R->>G: FeedbackGenerator db
+    Note over G: Initialize repositories and LLM
+
+    R->>G: generate_feedback session_id
+
+    G->>SR: get_by_id session_id
+    SR->>DB: SELECT practice_sessions
+    DB-->>SR: PracticeSession
+    SR-->>G: session
+
+    alt Session Not Found
+        G-->>R: ValueError Session not found
+        R-->>C: 400 Bad Request
+    end
+
+    alt Session Not Completed
+        G-->>R: ValueError Session is not completed
+        R-->>C: 400 Bad Request
+    end
+
+    G->>FR: get_by_session_id session_id
+    FR->>DB: SELECT session_feedback
+    DB-->>FR: SessionFeedback or None
+    FR-->>G: existing_feedback
+
+    alt Feedback Already Exists
+        G-->>R: ValueError Feedback already exists
+        R-->>C: 400 Bad Request
+    end
+
+    G->>MR: list_by_session_id session_id
+    MR->>DB: SELECT session_messages ORDER BY sequence_no
+    DB-->>MR: list of SessionMessage
+    MR-->>G: messages
+
+    alt No Messages
+        G-->>R: ValueError No messages found
+        R-->>C: 400 Bad Request
+    end
+
+    G->>G: _build_conversation_log
+    Note over G: Convert messages to role and content format
+
+    G->>G: _call_llm
+    G->>G: build_feedback_prompt
+    G->>LLM: generate_json prompt temperature=0.7
+    Note over LLM: Generate structured JSON response
+
+    LLM-->>G: JSON response
+    G->>G: _validate_feedback_response
+    Note over G: Validate required fields and normalize score
+
+    G->>G: _save_feedback
+
+    G->>FR: create SessionFeedback
+    FR->>DB: INSERT session_feedback
+    DB-->>FR: SessionFeedback
+    FR-->>G: feedback
+
+    loop For each metric
+        G->>MetR: create FeedbackMetric
+        MetR->>DB: INSERT feedback_metrics
+        DB-->>MetR: FeedbackMetric
+        MetR-->>G: metric
+    end
+
+    G->>SR: update session with overall_score
+    SR->>DB: UPDATE practice_sessions
+    DB-->>SR: updated session
+    SR-->>G: session
+
+    G-->>R: FeedbackResult
+    R->>R: FeedbackGenerationResponse
+    R-->>C: JSON Response 200 OK

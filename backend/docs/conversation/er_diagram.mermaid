@@ -1,0 +1,70 @@
+%% 会話処理に関連するDBテーブル構造
+
+erDiagram
+    USERS ||--o{ PRACTICE_SESSIONS : "has many"
+    PRACTICE_SESSIONS ||--o{ SESSION_PARTICIPANTS : "has many"
+    PRACTICE_SESSIONS ||--o{ SESSION_MESSAGES : "has many"
+    AI_CHARACTERS ||--o{ SESSION_PARTICIPANTS : "referenced by"
+    SESSION_PARTICIPANTS ||--o{ SESSION_MESSAGES : "can author"
+
+    USERS {
+        bigint id PK
+        varchar firebase_uid UK
+        varchar email
+        varchar display_name
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PRACTICE_SESSIONS {
+        bigint id PK
+        bigint user_id FK
+        varchar status
+        varchar mode
+        int participant_count
+        bool feedback_enabled
+        text theme
+        int presentation_duration_sec
+        int presentation_qa_count
+        text user_goal
+        text user_concerns
+        text session_brief
+        varchar target_context
+        int overall_score
+        text feedback_summary
+        timestamp started_at
+        timestamp ended_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    SESSION_PARTICIPANTS {
+        bigint id PK
+        bigint session_id FK
+        bigint ai_character_id FK
+        varchar display_name
+        varchar role
+        int seat_index
+        bool is_active
+        timestamp created_at
+    }
+
+    SESSION_MESSAGES {
+        bigint id PK
+        bigint session_id FK
+        bigint participant_id FK
+        int sequence_no
+        text content
+        numeric transcript_confidence
+        timestamp created_at
+    }
+
+    AI_CHARACTERS {
+        bigint id PK
+        varchar name
+        varchar strictness
+        varchar voice_style
+        text persona_prompt
+        timestamp created_at
+    }

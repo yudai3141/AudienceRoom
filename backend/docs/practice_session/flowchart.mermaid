@@ -1,0 +1,59 @@
+%% POST /practice-sessions エンドポイントのフロー図
+
+flowchart TB
+    subgraph Client["Client"]
+        REQ[POST /practice-sessions]
+    end
+
+    subgraph Routes["app/api/routes/practice_sessions.py"]
+        ROUTE[router.post<br/>create_practice_session]
+    end
+
+    subgraph Schemas["app/schemas/practice_session.py"]
+        REQ_SCHEMA[PracticeSessionCreateRequest]
+        RES_SCHEMA[PracticeSessionResponse]
+    end
+
+    subgraph Services["app/services/practice_session_service.py"]
+        SESSION_SERVICE[PracticeSessionService]
+        CREATE_SESSION[create_session]
+        ASSIGN_PARTICIPANTS[_assign_participants]
+    end
+
+    subgraph Repositories["app/repositories/"]
+        SESSION_REPO[PracticeSessionRepository]
+        PARTICIPANT_REPO[SessionParticipantRepository]
+        CHARACTER_REPO[AiCharacterRepository]
+    end
+
+    subgraph Database["app/db/"]
+        DB_SESSION[session.py<br/>get_db]
+    end
+
+    subgraph DBModels["app/db/models/"]
+        PRACTICE_SESSION[practice_session.py<br/>PracticeSession]
+        SESSION_PARTICIPANT[session_participant.py<br/>SessionParticipant]
+        AI_CHARACTER[ai_character.py<br/>AiCharacter]
+    end
+
+    %% メインフロー
+    REQ --> ROUTE
+    ROUTE --> REQ_SCHEMA
+    ROUTE --> DB_SESSION
+    ROUTE --> SESSION_SERVICE
+
+    SESSION_SERVICE --> CREATE_SESSION
+    CREATE_SESSION --> SESSION_REPO
+    CREATE_SESSION --> ASSIGN_PARTICIPANTS
+
+    ASSIGN_PARTICIPANTS --> CHARACTER_REPO
+    ASSIGN_PARTICIPANTS --> PARTICIPANT_REPO
+
+    %% リポジトリからモデル
+    SESSION_REPO --> PRACTICE_SESSION
+    PARTICIPANT_REPO --> SESSION_PARTICIPANT
+    CHARACTER_REPO --> AI_CHARACTER
+
+    %% レスポンス
+    CREATE_SESSION --> RES_SCHEMA
+    RES_SCHEMA --> REQ

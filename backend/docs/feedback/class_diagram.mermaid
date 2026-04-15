@@ -1,0 +1,68 @@
+%% FeedbackGenerator と依存クラスの関係
+
+classDiagram
+    class FeedbackGenerator {
+        -Session _db
+        -PracticeSessionRepository _session_repo
+        -SessionMessageRepository _message_repo
+        -SessionFeedbackRepository _feedback_repo
+        -FeedbackMetricRepository _metric_repo
+        -LLMProvider _llm
+        +generate_feedback() FeedbackResult
+        -_build_conversation_log() list
+        -_call_llm() dict
+        -_validate_feedback_response() dict
+        -_save_feedback() FeedbackResult
+    }
+
+    class FeedbackResult {
+        +SessionFeedback feedback
+        +list metrics
+        +int overall_score
+    }
+
+    class PracticeSessionRepository {
+        -Session _db
+        +get_by_id() PracticeSession
+        +update() PracticeSession
+    }
+
+    class SessionMessageRepository {
+        -Session _db
+        +list_by_session_id() list
+    }
+
+    class SessionFeedbackRepository {
+        -Session _db
+        +create() SessionFeedback
+        +get_by_session_id() SessionFeedback
+    }
+
+    class FeedbackMetricRepository {
+        -Session _db
+        +create() FeedbackMetric
+        +list_by_feedback_id() list
+    }
+
+    class LLMProvider {
+        +generate() LLMResponse
+        +generate_json() dict
+    }
+    note for LLMProvider "abstract class"
+
+    class build_feedback_prompt {
+        mode str
+        theme str
+        user_goal str
+        user_concerns str
+        conversation_log list
+        returns list
+    }
+
+    FeedbackGenerator --> PracticeSessionRepository : uses
+    FeedbackGenerator --> SessionMessageRepository : uses
+    FeedbackGenerator --> SessionFeedbackRepository : uses
+    FeedbackGenerator --> FeedbackMetricRepository : uses
+    FeedbackGenerator --> LLMProvider : uses
+    FeedbackGenerator --> build_feedback_prompt : uses
+    FeedbackGenerator --> FeedbackResult : returns

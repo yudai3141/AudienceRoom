@@ -1,0 +1,56 @@
+%% POST /auth/login の処理シーケンス
+
+sequenceDiagram
+    participant FE as Frontend
+    participant FB as Firebase Auth
+    participant R as Route
+    participant A as get_current_firebase_user
+    participant FI as init_firebase
+    participant S as UserService
+    participant UR as UserRepository
+    participant DB as Database
+
+    Note over FE,FB: 1. Frontend側でFirebase認証
+    FE->>FB: signInWithPopup / signInWithEmail
+    FB-->>FE: Firebase ID Token
+
+    Note over FE,DB: 2. Backend APIコール
+    FE->>R: POST /auth/login with Bearer token
+
+    R->>A: Depends get_current_firebase_user
+    A->>FI: init_firebase()
+    FI-->>A: firebase_admin App
+
+    A->>FB: auth.verify_id_token
+    FB-->>A: decoded claims
+
+    alt Token Invalid
+        A-->>R: HTTPException 401
+        R-->>FE: 401 Unauthorized
+    end
+
+    A-->>R: decoded dict
+
+    R->>R: Validate LoginRequest
+
+    R->>S: UserService db
+    R->>S: get_or_create_user
+
+    S->>UR: get_user_by_firebase_uid
+    UR->>DB: SELECT users WHERE firebase_uid
+    DB-->>UR: User or None
+    UR-->>S: existing user or None
+
+    alt User Exists
+        S-->>R: existing_user, False
+    else User Not Exists
+        S->>S: Create new User model
+        S->>UR: create_user
+        UR->>DB: INSERT users
+        DB-->>UR: User
+        UR-->>S: new_user
+        S-->>R: new_user, True
+    end
+
+    R->>R: UserResponse.model_validate
+    R-->>FE: JSON Response 200 OK

@@ -1,0 +1,62 @@
+%% PracticeSessionService と依存クラスの関係
+
+classDiagram
+    class PracticeSessionService {
+        -Session _db
+        -PracticeSessionRepository _repository
+        +create_session() PracticeSession
+        +get_session() PracticeSession
+        +list_user_sessions() list
+        +list_user_sessions_paginated() PaginatedSessionListResponse
+        +get_session_detail() PracticeSessionDetailResponse
+        +get_dashboard() DashboardResponse
+        +update_status() PracticeSession
+        -_assign_participants() void
+    }
+
+    class PracticeSessionRepository {
+        -Session _db
+        +create() PracticeSession
+        +get_by_id() PracticeSession
+        +list_by_user_id() list
+        +list_by_user_id_paginated() list
+        +count_by_user_id() int
+        +count_by_user_id_and_status() int
+        +average_score_by_user_id() Decimal
+        +update() PracticeSession
+    }
+
+    class SessionParticipantRepository {
+        -Session _db
+        +create() SessionParticipant
+        +bulk_create() list
+        +get_by_id() SessionParticipant
+        +list_by_session_id() list
+    }
+
+    class AiCharacterRepository {
+        -Session _db
+        +create() AiCharacter
+        +get_by_id() AiCharacter
+        +list_active() list
+    }
+
+    class SessionMessageRepository {
+        -Session _db
+        +create() SessionMessage
+        +get_by_id() SessionMessage
+        +list_by_session_id() list
+    }
+
+    class SessionFeedbackRepository {
+        -Session _db
+        +create() SessionFeedback
+        +get_by_id() SessionFeedback
+        +get_by_session_id() SessionFeedback
+    }
+
+    PracticeSessionService --> PracticeSessionRepository : uses
+    PracticeSessionService --> SessionParticipantRepository : uses in _assign_participants
+    PracticeSessionService --> AiCharacterRepository : uses in _assign_participants
+    PracticeSessionService --> SessionMessageRepository : uses in get_session_detail
+    PracticeSessionService --> SessionFeedbackRepository : uses in list_user_sessions_paginated

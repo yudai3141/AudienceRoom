@@ -8,9 +8,9 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.repositories.user_repository import UserRepository
 
-security = HTTPBearer()
+security = HTTPBearer()  # Authorization: Bearer <token> を自動で取り出す
 
-
+# Firebaseのトークンが正しいか確認する関数
 def get_current_firebase_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
@@ -25,7 +25,7 @@ def get_current_firebase_user(
         )
     return decoded
 
-
+# Firebaseユーザーに対応する自前DBのユーザーを取る関数
 def get_current_user(
     decoded: dict = Depends(get_current_firebase_user),
     db: Session = Depends(get_db),

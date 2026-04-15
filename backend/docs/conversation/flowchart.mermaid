@@ -1,0 +1,100 @@
+%% /conversation/message エンドポイントのフロー図
+%% POST /conversation/message が叩かれてからの依存関係
+
+flowchart TB
+    subgraph Client["Client"]
+        REQ[POST /conversation/message]
+    end
+
+    subgraph Routes["app/api/routes/conversation.py"]
+        ROUTE[router.post /conversation/message<br/>send_message]
+    end
+
+    subgraph Schemas["app/schemas/conversation.py"]
+        REQ_SCHEMA[ConversationMessageRequest]
+        RES_SCHEMA[ConversationResponse]
+    end
+
+    subgraph Services["app/services/ai/conversation_service.py"]
+        CONV_SERVICE[ConversationService]
+        PROCESS_MSG[process_message]
+        BUILD_HISTORY[_build_conversation_history]
+        GENERATE_RESP[_generate_response]
+        PICK_PARTICIPANT[_pick_random_participant]
+    end
+
+    subgraph Repositories["app/repositories/"]
+        SESSION_REPO[PracticeSessionRepository]
+        MESSAGE_REPO[SessionMessageRepository]
+        PARTICIPANT_REPO[SessionParticipantRepository]
+    end
+
+    subgraph LLMLayer["app/services/ai/llm/"]
+        FACTORY[factory.py<br/>get_llm_provider]
+        BASE[base.py<br/>LLMProvider ABC]
+        GEMINI[gemini.py<br/>GeminiProvider]
+        OPENAI[openai.py<br/>OpenAIProvider]
+    end
+
+    subgraph Prompts["app/services/prompts/"]
+        INTERVIEW_PROMPT[interview.py<br/>build_interview_prompt]
+        PRESENTATION_PROMPT[presentation.py<br/>build_presentation_prompt]
+    end
+
+    subgraph TTS["app/services/ai/tts_service.py"]
+        TTS_SERVICE[TTSService]
+        VOICEVOX[VOICEVOX API]
+    end
+
+    subgraph Database["app/db/"]
+        DB_SESSION[session.py<br/>get_db]
+        MODELS[models/]
+    end
+
+    subgraph DBModels["app/db/models/"]
+        PRACTICE_SESSION[practice_session.py<br/>PracticeSession]
+        SESSION_MESSAGE[session_message.py<br/>SessionMessage]
+        SESSION_PARTICIPANT[session_participant.py<br/>SessionParticipant]
+    end
+
+    %% メインフロー
+    REQ --> ROUTE
+    ROUTE --> REQ_SCHEMA
+    ROUTE --> DB_SESSION
+    ROUTE --> CONV_SERVICE
+    CONV_SERVICE --> PROCESS_MSG
+
+    %% リポジトリ呼び出し
+    PROCESS_MSG --> SESSION_REPO
+    PROCESS_MSG --> MESSAGE_REPO
+    PROCESS_MSG --> PARTICIPANT_REPO
+
+    %% 内部処理
+    PROCESS_MSG --> BUILD_HISTORY
+    PROCESS_MSG --> PICK_PARTICIPANT
+    PROCESS_MSG --> GENERATE_RESP
+
+    %% LLM生成
+    GENERATE_RESP --> INTERVIEW_PROMPT
+    GENERATE_RESP --> PRESENTATION_PROMPT
+    GENERATE_RESP --> FACTORY
+    FACTORY --> BASE
+    FACTORY --> GEMINI
+    FACTORY --> OPENAI
+
+    %% TTS
+    PROCESS_MSG --> TTS_SERVICE
+    TTS_SERVICE --> VOICEVOX
+
+    %% リポジトリからモデル
+    SESSION_REPO --> PRACTICE_SESSION
+    MESSAGE_REPO --> SESSION_MESSAGE
+    PARTICIPANT_REPO --> SESSION_PARTICIPANT
+
+    PRACTICE_SESSION --> MODELS
+    SESSION_MESSAGE --> MODELS
+    SESSION_PARTICIPANT --> MODELS
+
+    %% レスポンス
+    PROCESS_MSG --> RES_SCHEMA
+    RES_SCHEMA --> REQ

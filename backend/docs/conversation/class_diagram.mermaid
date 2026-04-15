@@ -1,0 +1,80 @@
+%% ConversationService と依存クラスの関係
+
+classDiagram
+    class ConversationService {
+        -Session _db
+        -PracticeSessionRepository _session_repo
+        -SessionMessageRepository _message_repo
+        -SessionParticipantRepository _participant_repo
+        -LLMProvider _llm
+        -TTSService _tts
+        +process_message() ConversationResponse
+        +start_conversation() ConversationResponse
+        -_pick_random_participant() SessionParticipant
+        -_build_conversation_history() list
+        -_generate_response() str
+        -_get_character_voice() str
+    }
+
+    class PracticeSessionRepository {
+        -Session _db
+        +create() PracticeSession
+        +get_by_id() PracticeSession
+        +list_by_user_id() list
+        +update() PracticeSession
+    }
+
+    class SessionMessageRepository {
+        -Session _db
+        +create() SessionMessage
+        +get_by_id() SessionMessage
+        +list_by_session_id() list
+    }
+
+    class SessionParticipantRepository {
+        -Session _db
+        +create() SessionParticipant
+        +bulk_create() list
+        +get_by_id() SessionParticipant
+        +list_by_session_id() list
+    }
+
+    class LLMProvider {
+        +generate() LLMResponse
+        +generate_json() dict
+    }
+    note for LLMProvider "abstract class"
+
+    class GeminiProvider {
+        -str model_name
+        -GenerativeModel model
+        +generate() LLMResponse
+        +generate_json() dict
+        -_convert_messages() tuple
+    }
+
+    class OpenAIProvider {
+        -str model
+        -AsyncOpenAI client
+        +generate() LLMResponse
+        +generate_json() dict
+    }
+
+    class TTSService {
+        -str host
+        -int port
+        -str base_url
+        +synthesize() TTSResult
+        +synthesize_by_character() TTSResult
+        +get_speakers() list
+        +health_check() bool
+    }
+
+    ConversationService --> PracticeSessionRepository : uses
+    ConversationService --> SessionMessageRepository : uses
+    ConversationService --> SessionParticipantRepository : uses
+    ConversationService --> LLMProvider : uses
+    ConversationService --> TTSService : uses
+
+    LLMProvider <|-- GeminiProvider : implements
+    LLMProvider <|-- OpenAIProvider : implements

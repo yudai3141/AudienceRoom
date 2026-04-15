@@ -1,0 +1,44 @@
+%% POST /practice-sessions の処理シーケンス
+
+sequenceDiagram
+    participant C as Client
+    participant R as Route
+    participant S as PracticeSessionService
+    participant SR as PracticeSessionRepository
+    participant CR as AiCharacterRepository
+    participant PR as SessionParticipantRepository
+    participant DB as Database
+
+    C->>R: POST /practice-sessions
+    R->>R: Validate PracticeSessionCreateRequest
+
+    R->>S: PracticeSessionService db
+    R->>S: create_session
+
+    Note over S: Validate mode in SESSION_MODES
+
+    S->>S: Create PracticeSession model
+    S->>SR: create session
+    SR->>DB: INSERT practice_sessions
+    DB-->>SR: PracticeSession
+    SR-->>S: session
+
+    S->>S: _assign_participants
+
+    S->>CR: AiCharacterRepository db
+    S->>CR: list_active
+    CR->>DB: SELECT ai_characters WHERE is_active=true
+    DB-->>CR: list of AiCharacter
+    CR-->>S: characters
+
+    Note over S: Create SessionParticipant for each character
+
+    S->>PR: SessionParticipantRepository db
+    S->>PR: bulk_create participants
+    PR->>DB: INSERT session_participants
+    DB-->>PR: list of SessionParticipant
+    PR-->>S: participants
+
+    S-->>R: PracticeSession
+    R->>R: PracticeSessionResponse.model_validate
+    R-->>C: JSON Response 201 Created
