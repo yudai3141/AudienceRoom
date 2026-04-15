@@ -214,9 +214,9 @@ export function useStreamingConversation(
           if (controller.signal.aborted) break;
 
           if (event === "metadata") {
-            participantId = data.participant_id ?? null;
+            participantId = (data.participant_id as number | undefined) ?? null;
           } else if (event === "text_chunk") {
-            fullText += data.text;
+            fullText += data.text as string;
 
             // メッセージを更新（既存メッセージがあれば更新、なければ追加）
             setState((prev) => {
@@ -245,8 +245,8 @@ export function useStreamingConversation(
           } else if (event === "audio_chunk") {
             // オーディオキューに追加
             audioQueueRef.current.push({
-              audio: data.audio_base64,
-              sequence: data.sequence,
+              audio: data.audio_base64 as string,
+              sequence: data.sequence as number,
               participantId,
             });
             // 再生開始
@@ -264,7 +264,9 @@ export function useStreamingConversation(
             };
             onAiResponse?.(finalMessage);
           } else if (event === "error") {
-            throw new Error(data.message || "エラーが発生しました");
+            throw new Error(
+              (data.message as string | undefined) || "エラーが発生しました"
+            );
           }
         }
       } catch (error) {
@@ -342,9 +344,9 @@ export function useStreamingConversation(
         if (controller.signal.aborted) break;
 
         if (event === "metadata") {
-          participantId = data.participant_id ?? null;
+          participantId = (data.participant_id as number | undefined) ?? null;
         } else if (event === "text_chunk") {
-          fullText += data.text;
+          fullText += data.text as string;
 
           setState((prev) => {
             const existingIndex = prev.messages.findIndex(
@@ -371,8 +373,8 @@ export function useStreamingConversation(
           });
         } else if (event === "audio_chunk") {
           audioQueueRef.current.push({
-            audio: data.audio_base64,
-            sequence: data.sequence,
+            audio: data.audio_base64 as string,
+            sequence: data.sequence as number,
             participantId,
           });
           playNextAudio();
@@ -388,7 +390,9 @@ export function useStreamingConversation(
           };
           onAiResponse?.(finalMessage);
         } else if (event === "error") {
-          throw new Error(data.message || "エラーが発生しました");
+          throw new Error(
+            (data.message as string | undefined) || "エラーが発生しました"
+          );
         }
       }
     } catch (error) {

@@ -14,7 +14,10 @@ from app.services.ai.llm.base import LLMStreamChunk
 @pytest.fixture(autouse=True)
 def mock_llm_provider():
     """Mock LLM provider to avoid requiring API keys in tests."""
-    with patch("app.services.ai.llm.get_llm_provider") as mock:
+    # StreamingConversationServiceが使用する場所でパッチを当てる
+    with patch(
+        "app.services.ai.streaming_conversation_service.get_llm_provider"
+    ) as mock:
         mock_provider = MagicMock()
         mock.return_value = mock_provider
         yield mock_provider
@@ -33,7 +36,8 @@ class TestStreamingConversationService:
         return MagicMock()
 
     @pytest.fixture
-    def service(self, mock_db):
+    def service(self, mock_db, mock_llm_provider):
+        # mock_llm_providerを明示的に依存させる
         return StreamingConversationService(mock_db)
 
     @pytest.mark.asyncio
