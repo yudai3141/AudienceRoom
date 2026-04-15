@@ -1,0 +1,52 @@
+%% フィードバック生成に関連するテーブル
+
+erDiagram
+    PRACTICE_SESSIONS ||--o{ SESSION_MESSAGES : has_many
+    PRACTICE_SESSIONS ||--o| SESSION_FEEDBACK : has_one
+    SESSION_FEEDBACK ||--o{ FEEDBACK_METRICS : has_many
+    USERS ||--o{ SESSION_FEEDBACK : receives
+
+    PRACTICE_SESSIONS {
+        bigint id PK
+        bigint user_id FK
+        varchar status
+        varchar mode
+        text theme
+        text user_goal
+        text user_concerns
+        int overall_score
+        text feedback_summary
+        timestamp created_at
+    }
+
+    SESSION_MESSAGES {
+        bigint id PK
+        bigint session_id FK
+        bigint participant_id FK
+        int sequence_no
+        text content
+        timestamp created_at
+    }
+
+    SESSION_FEEDBACK {
+        bigint id PK
+        bigint session_id FK
+        bigint user_id FK
+        text summary_title
+        text short_comment
+        jsonb positive_points
+        jsonb improvement_points
+        text closing_message
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    FEEDBACK_METRICS {
+        bigint id PK
+        bigint feedback_id FK
+        varchar metric_key
+        numeric metric_value
+        varchar metric_label
+        varchar metric_unit
+        timestamp created_at
+    }

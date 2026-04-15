@@ -1,0 +1,67 @@
+%% /conversation/message の処理シーケンス
+
+sequenceDiagram
+    participant C as Client
+    participant R as Route
+    participant S as ConversationService
+    participant SR as PracticeSessionRepository
+    participant MR as SessionMessageRepository
+    participant PR as SessionParticipantRepository
+    participant LLM as LLMProvider
+    participant TTS as TTSService
+    participant DB as Database
+
+    C->>R: POST /conversation/message
+    R->>R: Validate ConversationMessageRequest
+
+    R->>S: ConversationService(db)
+    Note over S: Initialize repositories and LLM
+
+    R->>S: process_message(session_id, message, generate_audio)
+
+    S->>SR: get_by_id(session_id)
+    SR->>DB: SELECT practice_sessions
+    DB-->>SR: PracticeSession
+    SR-->>S: session
+
+    S->>S: Validate session status == active
+
+    S->>MR: list_by_session_id(session_id)
+    MR->>DB: SELECT session_messages
+    DB-->>MR: list of SessionMessage
+    MR-->>S: existing_messages
+
+    S->>S: Create user SessionMessage
+    S->>MR: create(user_msg)
+    MR->>DB: INSERT session_messages
+    DB-->>MR: SessionMessage
+    MR-->>S: saved_user_msg
+
+    S->>S: _build_conversation_history()
+
+    S->>PR: list_by_session_id(session_id)
+    PR->>DB: SELECT session_participants
+    DB-->>PR: list of SessionParticipant
+    PR-->>S: participants
+
+    S->>S: _pick_random_participant()
+
+    S->>S: _generate_response()
+    Note over S: Build prompt based on mode
+
+    S->>LLM: generate(prompt, temperature=0.8)
+    LLM-->>S: LLMResponse
+
+    S->>S: Create AI SessionMessage
+    S->>MR: create(ai_msg)
+    MR->>DB: INSERT session_messages
+    DB-->>MR: SessionMessage
+    MR-->>S: saved_ai_msg
+
+    alt generate_audio == true
+        S->>TTS: synthesize(text, speaker_id, speed_scale)
+        TTS-->>S: TTSResult with audio_base64
+    end
+
+    S-->>R: ConversationResponse
+    R-->>C: JSON Response

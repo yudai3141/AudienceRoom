@@ -1,0 +1,28 @@
+%% LLMレスポンス構造
+
+flowchart LR
+    subgraph LLMInput["LLM Input - Prompt"]
+        A["System: フィードバック生成の指示"]
+        B["User: 会話ログ + セッション情報"]
+    end
+
+    subgraph LLMOutput["LLM Output JSON"]
+        C["summary_title: string"]
+        D["short_comment: string"]
+        E["positive_points: array"]
+        F["improvement_points: array"]
+        G["closing_message: string"]
+        H["overall_score: int 0-100"]
+        I["metrics: array"]
+    end
+
+    subgraph MetricData["MetricData"]
+        J["key: string"]
+        K["value: number"]
+        L["label: string"]
+        M["unit: string"]
+    end
+
+    A --> LLMOutput
+    B --> LLMOutput
+    I --> MetricData

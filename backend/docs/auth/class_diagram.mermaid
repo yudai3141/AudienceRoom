@@ -1,0 +1,59 @@
+%% 認証関連クラスの関係
+
+classDiagram
+    class HTTPBearer {
+        FastAPI Security
+        __call__() HTTPAuthorizationCredentials
+    }
+
+    class get_current_firebase_user {
+        Dependency Function
+        credentials HTTPAuthorizationCredentials
+        returns dict
+    }
+
+    class get_current_user {
+        Dependency Function
+        decoded dict
+        db Session
+        returns User
+    }
+
+    class init_firebase {
+        Function
+        returns App
+    }
+
+    class UserService {
+        -UserRepository _repository
+        +create_user() User
+        +get_or_create_user() tuple
+        +get_user() User
+        +get_user_by_firebase_uid() User
+    }
+
+    class UserRepository {
+        -Session _db
+        +create_user() User
+        +get_user_by_id() User
+        +get_user_by_firebase_uid() User
+    }
+
+    class User {
+        +int id
+        +str firebase_uid
+        +str email
+        +str display_name
+        +str photo_url
+        +bool onboarding_completed
+        +datetime created_at
+        +datetime updated_at
+        +datetime deleted_at
+    }
+
+    HTTPBearer --> get_current_firebase_user : provides credentials
+    get_current_firebase_user --> init_firebase : initializes
+    get_current_firebase_user --> get_current_user : provides decoded
+    get_current_user --> UserRepository : uses
+    UserService --> UserRepository : uses
+    UserRepository --> User : manages

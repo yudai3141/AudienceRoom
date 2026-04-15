@@ -1,0 +1,27 @@
+%% 認証フローの全体像
+
+flowchart LR
+    subgraph Frontend
+        A[ユーザー操作] --> B[Firebase SDK]
+        B --> C[ID Token取得]
+    end
+
+    subgraph Firebase
+        D[Firebase Auth]
+    end
+
+    subgraph Backend
+        E[HTTPBearer] --> F[get_current_firebase_user]
+        F --> G[verify_id_token]
+        G --> H{Token Valid?}
+        H -->|Yes| I[decoded claims]
+        H -->|No| J[401 Error]
+        I --> K[UserService]
+        K --> L[get_or_create_user]
+        L --> M[UserRepository]
+        M --> N[Database]
+    end
+
+    B <--> D
+    C --> E
+    G <--> D

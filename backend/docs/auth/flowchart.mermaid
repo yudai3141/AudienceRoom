@@ -1,0 +1,67 @@
+%% POST /auth/login エンドポイントのフロー図
+
+flowchart TB
+    subgraph Client["Client - Frontend"]
+        FIREBASE_SDK["Firebase SDK"]
+        REQ["POST /auth/login"]
+    end
+
+    subgraph External["External Service"]
+        FIREBASE_AUTH[Firebase Authentication]
+    end
+
+    subgraph Routes["app/api/routes/auth.py"]
+        ROUTE[router.post /login]
+    end
+
+    subgraph Core["app/core/"]
+        AUTH[auth.py<br/>get_current_firebase_user]
+        FIREBASE_INIT[firebase.py<br/>init_firebase]
+        CONFIG[config.py<br/>settings]
+    end
+
+    subgraph Schemas["app/schemas/user.py"]
+        LOGIN_REQ[LoginRequest]
+        USER_RES[UserResponse]
+    end
+
+    subgraph Services["app/services/user_service.py"]
+        USER_SERVICE[UserService]
+        GET_OR_CREATE[get_or_create_user]
+    end
+
+    subgraph Repositories["app/repositories/user_repository.py"]
+        USER_REPO[UserRepository]
+    end
+
+    subgraph Database["app/db/"]
+        DB_SESSION[session.py<br/>get_db]
+    end
+
+    subgraph DBModels["app/db/models/user.py"]
+        USER_MODEL[User]
+    end
+
+    %% Firebase認証フロー
+    FIREBASE_SDK --> FIREBASE_AUTH
+    FIREBASE_AUTH --> FIREBASE_SDK
+    FIREBASE_SDK --> REQ
+
+    %% メインフロー
+    REQ --> ROUTE
+    ROUTE --> AUTH
+    AUTH --> FIREBASE_INIT
+    FIREBASE_INIT --> CONFIG
+    AUTH --> FIREBASE_AUTH
+
+    ROUTE --> LOGIN_REQ
+    ROUTE --> DB_SESSION
+    ROUTE --> USER_SERVICE
+
+    USER_SERVICE --> GET_OR_CREATE
+    GET_OR_CREATE --> USER_REPO
+    USER_REPO --> USER_MODEL
+
+    %% レスポンス
+    GET_OR_CREATE --> USER_RES
+    USER_RES --> REQ

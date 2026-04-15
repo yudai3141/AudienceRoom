@@ -1,0 +1,84 @@
+%% POST /practice-sessions/{id}/generate-feedback のフロー図
+
+flowchart TB
+    subgraph Client["Client"]
+        REQ[POST /practice-sessions/id/generate-feedback]
+    end
+
+    subgraph Routes["app/api/routes/practice_sessions.py"]
+        ROUTE[router.post generate_feedback]
+    end
+
+    subgraph Schemas["app/schemas/practice_session.py"]
+        RES_SCHEMA[FeedbackGenerationResponse]
+    end
+
+    subgraph AIServices["app/services/ai/feedback_generator.py"]
+        GENERATOR[FeedbackGenerator]
+        GENERATE[generate_feedback]
+        BUILD_LOG[_build_conversation_log]
+        CALL_LLM[_call_llm]
+        VALIDATE[_validate_feedback_response]
+        SAVE[_save_feedback]
+    end
+
+    subgraph Prompts["app/services/prompts/feedback.py"]
+        FEEDBACK_PROMPT[build_feedback_prompt]
+    end
+
+    subgraph LLMLayer["app/services/ai/llm/"]
+        FACTORY[factory.py<br/>get_llm_provider]
+        BASE[base.py<br/>LLMProvider]
+        GEMINI[gemini.py<br/>GeminiProvider]
+    end
+
+    subgraph Repositories["app/repositories/"]
+        SESSION_REPO[PracticeSessionRepository]
+        MESSAGE_REPO[SessionMessageRepository]
+        FEEDBACK_REPO[SessionFeedbackRepository]
+        METRIC_REPO[FeedbackMetricRepository]
+    end
+
+    subgraph Database["app/db/"]
+        DB_SESSION[session.py<br/>get_db]
+    end
+
+    subgraph DBModels["app/db/models/"]
+        PRACTICE_SESSION[PracticeSession]
+        SESSION_MESSAGE[SessionMessage]
+        SESSION_FEEDBACK[SessionFeedback]
+        FEEDBACK_METRIC[FeedbackMetric]
+    end
+
+    %% メインフロー
+    REQ --> ROUTE
+    ROUTE --> DB_SESSION
+    ROUTE --> GENERATOR
+
+    GENERATOR --> GENERATE
+    GENERATE --> SESSION_REPO
+    GENERATE --> MESSAGE_REPO
+    GENERATE --> FEEDBACK_REPO
+
+    GENERATE --> BUILD_LOG
+    GENERATE --> CALL_LLM
+    CALL_LLM --> FEEDBACK_PROMPT
+    CALL_LLM --> FACTORY
+    FACTORY --> BASE
+    FACTORY --> GEMINI
+
+    CALL_LLM --> VALIDATE
+    GENERATE --> SAVE
+    SAVE --> FEEDBACK_REPO
+    SAVE --> METRIC_REPO
+    SAVE --> SESSION_REPO
+
+    %% リポジトリからモデル
+    SESSION_REPO --> PRACTICE_SESSION
+    MESSAGE_REPO --> SESSION_MESSAGE
+    FEEDBACK_REPO --> SESSION_FEEDBACK
+    METRIC_REPO --> FEEDBACK_METRIC
+
+    %% レスポンス
+    GENERATE --> RES_SCHEMA
+    RES_SCHEMA --> REQ
