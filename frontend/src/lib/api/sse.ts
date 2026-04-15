@@ -2,10 +2,47 @@
  * Server-Sent Events (SSE) ユーティリティ
  */
 
-export interface SSEEvent {
-  event: string;
-  data: Record<string, unknown>;
-}
+/**
+ * SSE イベントの型定義（型安全性のための Discriminated Union）
+ *
+ * 各イベントタイプごとに data の型が明確に定義されている。
+ * これにより型アサーションが不要になり、TypeScript の型推論が正しく機能する。
+ */
+export type SSEEvent =
+  | {
+      event: "metadata";
+      data: {
+        participant_id?: number;
+        speaker_id?: number;
+      };
+    }
+  | {
+      event: "text_chunk";
+      data: {
+        text: string;
+      };
+    }
+  | {
+      event: "audio_chunk";
+      data: {
+        audio_base64: string;
+        sequence: number;
+        text: string;
+      };
+    }
+  | {
+      event: "complete";
+      data: {
+        text: string;
+        audio_sequence_count?: number;
+      };
+    }
+  | {
+      event: "error";
+      data: {
+        message: string;
+      };
+    };
 
 /**
  * SSEストリームを読み取り、イベントを逐次的に返す
@@ -52,9 +89,9 @@ export async function* readSSEStream(
         if (eventMatch && dataMatch) {
           try {
             yield {
-              event: eventMatch[1],
+              event: eventMatch[1] as SSEEvent["event"],
               data: JSON.parse(dataMatch[1]),
-            };
+            } as SSEEvent;
           } catch (error) {
             console.error("Failed to parse SSE data:", dataMatch[1], error);
           }
