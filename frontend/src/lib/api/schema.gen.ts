@@ -454,6 +454,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversation/message/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Message Stream
+         * @description Send a message and receive streaming response via Server-Sent Events.
+         *
+         *     This endpoint processes the user's message and streams the AI response
+         *     in real-time, including incremental text and audio chunks.
+         *
+         *     Returns Server-Sent Events (SSE):
+         *     - event: metadata, data: {participant_id, speaker_id}
+         *     - event: text_chunk, data: {text}
+         *     - event: audio_chunk, data: {audio_base64, sequence, text}
+         *     - event: complete, data: {text, audio_sequence_count}
+         *     - event: error, data: {message}
+         */
+        post: operations["send_message_stream_conversation_message_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversation/start/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Conversation Stream
+         * @description Start a conversation and stream the AI's opening message via SSE.
+         *
+         *     Returns Server-Sent Events (SSE):
+         *     - event: metadata, data: {participant_id, speaker_id}
+         *     - event: text_chunk, data: {text}
+         *     - event: audio_chunk, data: {audio_base64, sequence, text}
+         *     - event: complete, data: {text, audio_sequence_count}
+         *     - event: error, data: {message}
+         */
+        post: operations["start_conversation_stream_conversation_start_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1905,6 +1962,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConversationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_stream_conversation_message_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_conversation_stream_conversation_start_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
