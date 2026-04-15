@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from app.services.ai.streaming_conversation_service import (
     StreamEvent,
@@ -11,16 +11,7 @@ from app.db.models.ai_character import AiCharacter
 from app.services.ai.llm.base import LLMStreamChunk
 
 
-@pytest.fixture(autouse=True)
-def mock_llm_provider():
-    """Mock LLM provider to avoid requiring API keys in tests."""
-    # StreamingConversationServiceが使用する場所でパッチを当てる
-    with patch(
-        "app.services.ai.streaming_conversation_service.get_llm_provider"
-    ) as mock:
-        mock_provider = MagicMock()
-        mock.return_value = mock_provider
-        yield mock_provider
+# mock_llm_provider は conftest.py で定義されているため削除
 
 
 class TestStreamEvent:
