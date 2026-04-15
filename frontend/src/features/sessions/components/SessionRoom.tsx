@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Spinner } from "@/components/ui";
 import { useMediaDevices } from "../hooks/useMediaDevices";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
-import { useConversation, type Message } from "../hooks/useConversation";
+import { useStreamingConversation, type Message } from "../hooks/useStreamingConversation";
 import { useSessionDetail } from "../hooks/useSessionDetail";
 import { useUpdateSessionStatus } from "../hooks/useUpdateSessionStatus";
 import { useGenerateFeedback } from "../hooks/useGenerateFeedback";
@@ -592,7 +592,7 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     sendMessage,
     startConversation,
     stopAudio,
-  } = useConversation({
+  } = useStreamingConversation({
     sessionId,
     generateAudio: true,
   });

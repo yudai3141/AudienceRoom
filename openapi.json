@@ -1249,6 +1249,86 @@
           }
         }
       }
+    },
+    "/conversation/message/stream": {
+      "post": {
+        "tags": [
+          "conversation"
+        ],
+        "summary": "Send Message Stream",
+        "description": "メッセージを送信し、Server-Sent Events経由でストリーミングレスポンスを受信する\n\nこのエンドポイントはユーザーのメッセージを処理し、AI応答を\nリアルタイムでストリーミング配信します（増分テキストと音声チャンクを含む）\n\nServer-Sent Events (SSE)を返す:\n- event: metadata, data: {participant_id, speaker_id}\n- event: text_chunk, data: {text}\n- event: audio_chunk, data: {audio_base64, sequence, text}\n- event: complete, data: {text, audio_sequence_count}\n- event: error, data: {message}",
+        "operationId": "send_message_stream_conversation_message_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversation/start/stream": {
+      "post": {
+        "tags": [
+          "conversation"
+        ],
+        "summary": "Start Conversation Stream",
+        "description": "会話を開始し、AIの開始メッセージをSSE経由でストリーミング配信する\n\nServer-Sent Events (SSE)を返す:\n- event: metadata, data: {participant_id, speaker_id}\n- event: text_chunk, data: {text}\n- event: audio_chunk, data: {audio_base64, sequence, text}\n- event: complete, data: {text, audio_sequence_count}\n- event: error, data: {message}",
+        "operationId": "start_conversation_stream_conversation_start_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

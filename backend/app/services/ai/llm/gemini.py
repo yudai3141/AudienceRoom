@@ -1,15 +1,16 @@
 import json
 import logging
+from collections.abc import AsyncIterator
 
 import google.generativeai as genai
 
-from .base import LLMMessage, LLMProvider, LLMResponse
+from .base import LLMMessage, LLMProvider, LLMResponse, LLMStreamChunk
 
 logger = logging.getLogger(__name__)
 
 
 class GeminiProvider(LLMProvider):
-    """Google Gemini LLM provider."""
+    """Google Gemini LLMプロバイダー"""
 
     def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
         genai.configure(api_key=api_key)
@@ -19,10 +20,10 @@ class GeminiProvider(LLMProvider):
     def _convert_messages(
         self, messages: list[LLMMessage]
     ) -> tuple[str | None, list[dict]]:
-        """Convert LLMMessage list to Gemini format.
+        """LLMMessageリストをGemini形式に変換する
 
         Returns:
-            Tuple of (system_instruction, history)
+            (system_instruction, history) のタプル
         """
         system_instruction = None
         history = []
@@ -121,3 +122,44 @@ class GeminiProvider(LLMProvider):
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {response.text}")
             raise ValueError(f"Invalid JSON response from LLM: {e}") from e
+
+    async def generate_stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> AsyncIterator[LLMStreamChunk]:
+        """Geminiからストリーミングレスポンスを生成する"""
+        system_instruction, history = self._convert_messages(messages)
+
+        generation_config = genai.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+
+        model = self.model
+        if system_instruction:
+            model = genai.GenerativeModel(
+                self.model_name,
+                system_instruction=system_instruction,
+            )
+
+        if len(history) == 0:
+            raise ValueError("At least one user message is required")
+
+        last_message = history[-1]
+        chat_history = history[:-1] if len(history) > 1 else []
+
+        chat = model.start_chat(history=chat_history)
+        response = await chat.send_message_async(
+            last_message["parts"][0],
+            generation_config=generation_config,
+            stream=True,
+        )
+
+        async for chunk in response:
+            if chunk.text:
+                yield LLMStreamChunk(content=chunk.text, finish_reason=None)
+
+        yield LLMStreamChunk(content="", finish_reason="stop")
