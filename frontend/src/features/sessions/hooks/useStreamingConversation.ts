@@ -210,13 +210,14 @@ export function useStreamingConversation(
         let fullText = "";
         let participantId: number | null = null;
 
-        for await (const { event, data } of readSSEStream(response)) {
+        for await (const sseEvent of readSSEStream(response)) {
           if (controller.signal.aborted) break;
 
-          if (event === "metadata") {
-            participantId = (data.participant_id as number | undefined) ?? null;
-          } else if (event === "text_chunk") {
-            fullText += data.text as string;
+          // Discriminated Union により型が自動的に絞り込まれる
+          if (sseEvent.event === "metadata") {
+            participantId = sseEvent.data.participant_id ?? null;
+          } else if (sseEvent.event === "text_chunk") {
+            fullText += sseEvent.data.text;
 
             // メッセージを更新（既存メッセージがあれば更新、なければ追加）
             setState((prev) => {
@@ -242,16 +243,16 @@ export function useStreamingConversation(
                 };
               }
             });
-          } else if (event === "audio_chunk") {
-            // オーディオキューに追加
+          } else if (sseEvent.event === "audio_chunk") {
+            // オーディオキューに追加（型が自動的に絞り込まれる）
             audioQueueRef.current.push({
-              audio: data.audio_base64 as string,
-              sequence: data.sequence as number,
+              audio: sseEvent.data.audio_base64,
+              sequence: sseEvent.data.sequence,
               participantId,
             });
             // 再生開始
             playNextAudio();
-          } else if (event === "complete") {
+          } else if (sseEvent.event === "complete") {
             setState((prev) => ({ ...prev, isStreaming: false }));
 
             // 最終メッセージを取得してコールバック実行
@@ -263,10 +264,8 @@ export function useStreamingConversation(
               timestamp: new Date(),
             };
             onAiResponse?.(finalMessage);
-          } else if (event === "error") {
-            throw new Error(
-              (data.message as string | undefined) || "エラーが発生しました"
-            );
+          } else if (sseEvent.event === "error") {
+            throw new Error(sseEvent.data.message || "エラーが発生しました");
           }
         }
       } catch (error) {
@@ -340,13 +339,14 @@ export function useStreamingConversation(
       let fullText = "";
       let participantId: number | null = null;
 
-      for await (const { event, data } of readSSEStream(response)) {
+      for await (const sseEvent of readSSEStream(response)) {
         if (controller.signal.aborted) break;
 
-        if (event === "metadata") {
-          participantId = (data.participant_id as number | undefined) ?? null;
-        } else if (event === "text_chunk") {
-          fullText += data.text as string;
+        // Discriminated Union により型が自動的に絞り込まれる
+        if (sseEvent.event === "metadata") {
+          participantId = sseEvent.data.participant_id ?? null;
+        } else if (sseEvent.event === "text_chunk") {
+          fullText += sseEvent.data.text;
 
           setState((prev) => {
             const existingIndex = prev.messages.findIndex(
@@ -371,14 +371,15 @@ export function useStreamingConversation(
               };
             }
           });
-        } else if (event === "audio_chunk") {
+        } else if (sseEvent.event === "audio_chunk") {
+          // 型が自動的に絞り込まれる
           audioQueueRef.current.push({
-            audio: data.audio_base64 as string,
-            sequence: data.sequence as number,
+            audio: sseEvent.data.audio_base64,
+            sequence: sseEvent.data.sequence,
             participantId,
           });
           playNextAudio();
-        } else if (event === "complete") {
+        } else if (sseEvent.event === "complete") {
           setState((prev) => ({ ...prev, isStreaming: false }));
 
           const finalMessage: Message = {
@@ -389,10 +390,8 @@ export function useStreamingConversation(
             timestamp: new Date(),
           };
           onAiResponse?.(finalMessage);
-        } else if (event === "error") {
-          throw new Error(
-            (data.message as string | undefined) || "エラーが発生しました"
-          );
+        } else if (sseEvent.event === "error") {
+          throw new Error(sseEvent.data.message || "エラーが発生しました");
         }
       }
     } catch (error) {
