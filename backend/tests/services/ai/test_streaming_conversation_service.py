@@ -11,6 +11,15 @@ from app.db.models.ai_character import AiCharacter
 from app.services.ai.llm.base import LLMStreamChunk
 
 
+@pytest.fixture(autouse=True)
+def mock_llm_provider():
+    """Mock LLM provider to avoid requiring API keys in tests."""
+    with patch("app.services.ai.llm.get_llm_provider") as mock:
+        mock_provider = MagicMock()
+        mock.return_value = mock_provider
+        yield mock_provider
+
+
 class TestStreamEvent:
     def test_create_event(self):
         event = StreamEvent(event_type="text_chunk", data={"text": "Hello"})

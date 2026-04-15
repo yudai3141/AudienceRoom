@@ -118,6 +118,7 @@ data: {"message":"エラーが発生しました"}
     const response = new Response(null);
 
     await expect(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       for await (const _ of readSSEStream(response)) {
         // noop
       }

@@ -4,7 +4,7 @@
 
 export interface SSEEvent {
   event: string;
-  data: any;
+  data: Record<string, unknown>;
 }
 
 /**

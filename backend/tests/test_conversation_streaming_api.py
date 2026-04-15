@@ -6,6 +6,15 @@ from app.main import app
 from app.services.ai.streaming_conversation_service import StreamEvent
 
 
+@pytest.fixture(autouse=True)
+def mock_llm_provider():
+    """Mock LLM provider to avoid requiring API keys in tests."""
+    with patch("app.services.ai.llm.get_llm_provider") as mock:
+        mock_provider = MagicMock()
+        mock.return_value = mock_provider
+        yield mock_provider
+
+
 class TestConversationStreamingAPI:
     """Test streaming conversation API endpoints."""
 

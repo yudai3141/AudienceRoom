@@ -206,7 +206,7 @@ export function useStreamingConversation(
           throw new Error("メッセージの送信に失敗しました");
         }
 
-        let aiMessageId = generateMessageId();
+        const aiMessageId = generateMessageId();
         let fullText = "";
         let participantId: number | null = null;
 
@@ -334,7 +334,7 @@ export function useStreamingConversation(
         throw new Error("会話の開始に失敗しました");
       }
 
-      let aiMessageId = generateMessageId();
+      const aiMessageId = generateMessageId();
       let fullText = "";
       let participantId: number | null = null;
 
