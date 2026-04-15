@@ -183,7 +183,7 @@ export function useStreamingConversation(
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      try:
+      try {
         // Firebase トークンを取得
         const auth = getFirebaseAuth();
         const token = await auth?.currentUser?.getIdToken();
