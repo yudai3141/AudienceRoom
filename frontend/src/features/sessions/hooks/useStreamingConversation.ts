@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { readSSEStream } from "@/lib/api/sse";
 import { baseUrl } from "@/lib/api/client";
-import { getAuth } from "firebase/auth";
+import { getFirebaseAuth } from "@/lib/firebase";
 
 export type Message = {
   id: string;
@@ -183,10 +183,10 @@ export function useStreamingConversation(
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      try {
+      try:
         // Firebase トークンを取得
-        const auth = getAuth();
-        const token = await auth.currentUser?.getIdToken();
+        const auth = getFirebaseAuth();
+        const token = await auth?.currentUser?.getIdToken();
 
         const response = await fetch(`${baseUrl}/conversation/message/stream`, {
           method: "POST",
@@ -314,8 +314,8 @@ export function useStreamingConversation(
 
     try {
       // Firebase トークンを取得
-      const auth = getAuth();
-      const token = await auth.currentUser?.getIdToken();
+      const auth = getFirebaseAuth();
+      const token = await auth?.currentUser?.getIdToken();
 
       const response = await fetch(`${baseUrl}/conversation/start/stream`, {
         method: "POST",
