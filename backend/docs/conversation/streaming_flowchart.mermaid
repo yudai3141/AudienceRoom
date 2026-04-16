@@ -1,0 +1,135 @@
+%% /conversation/message/stream エンドポイントのフロー図（ストリーミング版）
+%% POST /conversation/message/stream が叩かれてからの依存関係
+
+flowchart TB
+    subgraph Client["Client"]
+        REQ[POST /conversation/message/stream]
+        SSE_EVENTS[Server-Sent Events<br/>metadata, text_chunk,<br/>audio_chunk, complete]
+    end
+
+    subgraph Routes["app/api/routes/conversation.py"]
+        ROUTE[router.post /conversation/message/stream<br/>send_message_stream]
+        SSE_GEN[event_generator<br/>async generator]
+    end
+
+    subgraph Schemas["app/schemas/conversation.py"]
+        REQ_SCHEMA[ConversationMessageRequest]
+        STREAM_EVENT[StreamEvent<br/>dataclass]
+    end
+
+    subgraph Services["app/services/ai/streaming_conversation_service.py"]
+        STREAM_SERVICE[StreamingConversationService]
+        PROCESS_STREAM[process_message_stream<br/>AsyncIterator]
+        STREAM_TEXT[_stream_text_only<br/>テキストのみストリーミング]
+        STREAM_TTS[_stream_with_tts<br/>TTS 並列生成付き]
+        BUILD_HISTORY[_build_conversation_history]
+        BUILD_PROMPT[_build_prompt]
+        EXTRACT_SENT[_extract_sentences<br/>文の区切り検出]
+        PICK_PARTICIPANT[_pick_random_participant]
+        GET_SPEAKER[_get_speaker_id]
+    end
+
+    subgraph Repositories["app/repositories/"]
+        SESSION_REPO[PracticeSessionRepository]
+        MESSAGE_REPO[SessionMessageRepository]
+        PARTICIPANT_REPO[SessionParticipantRepository]
+    end
+
+    subgraph LLMLayer["app/services/ai/llm/"]
+        FACTORY[factory.py<br/>get_llm_provider]
+        BASE[base.py<br/>LLMProvider ABC]
+        STREAM_CHUNK[LLMStreamChunk<br/>dataclass]
+        GEMINI[gemini.py<br/>GeminiProvider.generate_stream]
+        OPENAI[openai.py<br/>OpenAIProvider.generate_stream]
+    end
+
+    subgraph Prompts["app/services/prompts/"]
+        INTERVIEW_PROMPT[interview.py<br/>build_interview_prompt]
+        PRESENTATION_PROMPT[presentation.py<br/>build_presentation_prompt]
+    end
+
+    subgraph TTS["app/services/ai/tts_service.py"]
+        TTS_SERVICE[TTSService]
+        VOICEVOX[VOICEVOX API]
+        SPEAKERS[VOICEVOX_SPEAKERS<br/>声色マッピング]
+    end
+
+    subgraph Database["app/db/"]
+        DB_SESSION[session.py<br/>get_db]
+        MODELS[models/]
+    end
+
+    subgraph DBModels["app/db/models/"]
+        PRACTICE_SESSION[practice_session.py<br/>PracticeSession]
+        SESSION_MESSAGE[session_message.py<br/>SessionMessage]
+        SESSION_PARTICIPANT[session_participant.py<br/>SessionParticipant]
+        AI_CHARACTER[ai_character.py<br/>AiCharacter]
+    end
+
+    %% メインフロー
+    REQ --> ROUTE
+    ROUTE --> REQ_SCHEMA
+    ROUTE --> DB_SESSION
+    ROUTE --> STREAM_SERVICE
+    ROUTE --> SSE_GEN
+    STREAM_SERVICE --> PROCESS_STREAM
+
+    %% リポジトリ呼び出し
+    PROCESS_STREAM --> SESSION_REPO
+    PROCESS_STREAM --> MESSAGE_REPO
+    PROCESS_STREAM --> PARTICIPANT_REPO
+
+    %% 内部処理
+    PROCESS_STREAM --> BUILD_HISTORY
+    PROCESS_STREAM --> PICK_PARTICIPANT
+    PROCESS_STREAM --> BUILD_PROMPT
+
+    %% プロンプト構築
+    BUILD_PROMPT --> INTERVIEW_PROMPT
+    BUILD_PROMPT --> PRESENTATION_PROMPT
+
+    %% ストリーミング分岐
+    PROCESS_STREAM -->|generate_audio=true| STREAM_TTS
+    PROCESS_STREAM -->|generate_audio=false| STREAM_TEXT
+
+    %% LLM ストリーミング
+    STREAM_TEXT --> FACTORY
+    STREAM_TTS --> FACTORY
+    FACTORY --> BASE
+    FACTORY --> GEMINI
+    FACTORY --> OPENAI
+    GEMINI --> STREAM_CHUNK
+    OPENAI --> STREAM_CHUNK
+
+    %% TTS 並列生成
+    STREAM_TTS --> EXTRACT_SENT
+    EXTRACT_SENT -->|完全な文| TTS_SERVICE
+    STREAM_TTS --> GET_SPEAKER
+    GET_SPEAKER --> SPEAKERS
+    TTS_SERVICE --> VOICEVOX
+
+    %% SSE イベント生成
+    STREAM_TEXT --> STREAM_EVENT
+    STREAM_TTS --> STREAM_EVENT
+    STREAM_EVENT --> SSE_GEN
+    SSE_GEN --> SSE_EVENTS
+
+    %% リポジトリからモデル
+    SESSION_REPO --> PRACTICE_SESSION
+    MESSAGE_REPO --> SESSION_MESSAGE
+    PARTICIPANT_REPO --> SESSION_PARTICIPANT
+    PARTICIPANT_REPO --> AI_CHARACTER
+
+    PRACTICE_SESSION --> MODELS
+    SESSION_MESSAGE --> MODELS
+    SESSION_PARTICIPANT --> MODELS
+    AI_CHARACTER --> MODELS
+
+    %% レスポンス
+    SSE_EVENTS --> REQ
+
+    style STREAM_EVENT fill:#e1f5ff
+    style STREAM_CHUNK fill:#e1f5ff
+    style SSE_GEN fill:#fff3e0
+    style STREAM_TTS fill:#fff3e0
+    style EXTRACT_SENT fill:#fff3e0

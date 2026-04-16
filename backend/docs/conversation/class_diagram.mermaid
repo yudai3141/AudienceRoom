@@ -16,6 +16,31 @@ classDiagram
         -_get_character_voice() str
     }
 
+    class StreamingConversationService {
+        -Session _db
+        -PracticeSessionRepository _session_repo
+        -SessionMessageRepository _message_repo
+        -SessionParticipantRepository _participant_repo
+        -LLMProvider _llm
+        -TTSService _tts
+        +process_message_stream() AsyncIterator~StreamEvent~
+        +start_conversation_stream() AsyncIterator~StreamEvent~
+        -_stream_text_only() AsyncIterator~StreamEvent~
+        -_stream_with_tts() AsyncIterator~StreamEvent~
+        -_pick_random_participant() SessionParticipant
+        -_build_conversation_history() list
+        -_build_prompt() list
+        -_extract_sentences() list
+        -_get_speaker_id() int
+    }
+    note for StreamingConversationService "Server-Sent Events (SSE) でストリーミング配信"
+
+    class StreamEvent {
+        +str event_type
+        +dict data
+    }
+    note for StreamEvent "SSE イベント: metadata, text_chunk, audio_chunk, complete, error"
+
     class PracticeSessionRepository {
         -Session _db
         +create() PracticeSession
@@ -42,14 +67,22 @@ classDiagram
     class LLMProvider {
         +generate() LLMResponse
         +generate_json() dict
+        +generate_stream() AsyncIterator~LLMStreamChunk~
     }
     note for LLMProvider "abstract class"
+
+    class LLMStreamChunk {
+        +str content
+        +str|None finish_reason
+    }
+    note for LLMStreamChunk "ストリーミングレスポンスのチャンク"
 
     class GeminiProvider {
         -str model_name
         -GenerativeModel model
         +generate() LLMResponse
         +generate_json() dict
+        +generate_stream() AsyncIterator~LLMStreamChunk~
         -_convert_messages() tuple
     }
 
@@ -58,6 +91,7 @@ classDiagram
         -AsyncOpenAI client
         +generate() LLMResponse
         +generate_json() dict
+        +generate_stream() AsyncIterator~LLMStreamChunk~
     }
 
     class TTSService {
@@ -76,5 +110,13 @@ classDiagram
     ConversationService --> LLMProvider : uses
     ConversationService --> TTSService : uses
 
+    StreamingConversationService --> PracticeSessionRepository : uses
+    StreamingConversationService --> SessionMessageRepository : uses
+    StreamingConversationService --> SessionParticipantRepository : uses
+    StreamingConversationService --> LLMProvider : uses
+    StreamingConversationService --> TTSService : uses
+    StreamingConversationService ..> StreamEvent : yields
+
+    LLMProvider ..> LLMStreamChunk : yields
     LLMProvider <|-- GeminiProvider : implements
     LLMProvider <|-- OpenAIProvider : implements
