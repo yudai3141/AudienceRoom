@@ -22,6 +22,7 @@ docs/
 | `streaming_flowchart.mermaid` | ストリーミング版の依存関係 _(conversation のみ)_ |
 | `class_diagram.mermaid` | 主要クラスの関係 |
 | `sequence_diagram.mermaid` | リクエストからレスポンスまでの処理順序 |
+| `streaming_sequence_diagram.mermaid` | ストリーミング版の処理順序 _(conversation のみ)_ |
 | `er_diagram.mermaid` | 関連するDBテーブル構造 |
 
 ## 会話エンドポイント (conversation)
@@ -43,7 +44,9 @@ docs/
 3. `audio_chunk` イベント: 文ごとの音声データ（シーケンス番号付き）
 4. `complete` イベント: 生成完了
 
-詳細は `conversation/streaming_flowchart.mermaid` と `conversation/sequence_diagram.mermaid` を参照。
+詳細は以下を参照:
+- `conversation/streaming_flowchart.mermaid` - 依存関係図
+- `conversation/streaming_sequence_diagram.mermaid` - 処理シーケンス図
 
 ## プレビュー方法
 
