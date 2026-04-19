@@ -63,6 +63,9 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const transcriptRef = useRef("");
+  const interimTranscriptRef = useRef("");
+  // ボタンを押している間 true — onend で自動再開するかの判定に使う
+  const isHoldingRef = useRef(false);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -78,13 +81,10 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     recognition.lang = language;
 
     recognition.onstart = () => {
-      transcriptRef.current = "";
       setState((prev) => ({
         ...prev,
         isListening: true,
         error: null,
-        transcript: "",
-        interimTranscript: "",
       }));
     };
 
@@ -104,6 +104,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       setState((prev) => {
         const newTranscript = prev.transcript + finalTranscript;
         transcriptRef.current = newTranscript;
+        interimTranscriptRef.current = interimTranscript;
         return {
           ...prev,
           transcript: newTranscript,
@@ -113,12 +114,20 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      // no-speech はボタン押下中の無音なので、holding 中はエラー扱いしない
+      if (event.error === "no-speech" && isHoldingRef.current) {
+        return;
+      }
+      // aborted は stopListening 時に発生するため無視
+      if (event.error === "aborted") {
+        return;
+      }
+
       const errorMessages: Record<string, string> = {
         "no-speech": "音声が検出されませんでした",
         "audio-capture": "マイクにアクセスできません",
         "not-allowed": "マイクの使用が許可されていません",
         network: "ネットワークエラーが発生しました",
-        aborted: "音声認識が中断されました",
       };
 
       const errorMessage =
@@ -132,12 +141,23 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     };
 
     recognition.onend = () => {
+      // ボタンをまだ押している場合は自動再開（ブラウザ側VADによる終了対策）
+      if (isHoldingRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          // start() 失敗時はリスニング状態を解除
+          setState((prev) => ({ ...prev, isListening: false }));
+        }
+        return;
+      }
       setState((prev) => ({ ...prev, isListening: false }));
     };
 
     recognitionRef.current = recognition;
 
     return () => {
+      isHoldingRef.current = false;
       recognition.abort();
     };
   }, [language, continuous]);
@@ -146,7 +166,9 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     const recognition = recognitionRef.current;
     if (!recognition) return;
 
+    isHoldingRef.current = true;
     transcriptRef.current = "";
+    interimTranscriptRef.current = "";
     setState((prev) => ({
       ...prev,
       transcript: "",
@@ -157,6 +179,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     try {
       recognition.start();
     } catch {
+      isHoldingRef.current = false;
       setState((prev) => ({
         ...prev,
         error: "音声認識を開始できませんでした",
@@ -165,15 +188,24 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   }, []);
 
   const stopListening = useCallback((): string => {
+    isHoldingRef.current = false;
+
     const recognition = recognitionRef.current;
     if (!recognition) return "";
 
-    recognition.stop();
-    return transcriptRef.current;
+    try {
+      recognition.stop();
+    } catch {
+      // 既に停止済みの場合のエラーを無視
+    }
+
+    // final 確定済み + まだ interim に残っているテキストを合わせて返す
+    return transcriptRef.current + interimTranscriptRef.current;
   }, []);
 
   const resetTranscript = useCallback(() => {
     transcriptRef.current = "";
+    interimTranscriptRef.current = "";
     setState((prev) => ({
       ...prev,
       transcript: "",
