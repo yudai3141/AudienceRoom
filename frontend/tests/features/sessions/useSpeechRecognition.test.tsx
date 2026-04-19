@@ -133,7 +133,7 @@ describe("useSpeechRecognition", () => {
     expect(result.current.isListening).toBe(true);
   });
 
-  it("should call onResult callback when final result is received", () => {
+  it("should buffer transcript and return it from stopListening", () => {
     let capturedOnStart: (() => void) | null = null;
     let capturedOnResult: ((event: unknown) => void) | null = null;
 
@@ -170,8 +170,7 @@ describe("useSpeechRecognition", () => {
       configurable: true,
     });
 
-    const onResult = vi.fn();
-    const { result } = renderHook(() => useSpeechRecognition({ onResult }));
+    const { result } = renderHook(() => useSpeechRecognition());
 
     act(() => {
       result.current.startListening();
@@ -191,8 +190,14 @@ describe("useSpeechRecognition", () => {
       });
     });
 
-    expect(onResult).toHaveBeenCalledWith("こんにちは");
     expect(result.current.transcript).toBe("こんにちは");
+
+    let returnedTranscript = "";
+    act(() => {
+      returnedTranscript = result.current.stopListening();
+    });
+
+    expect(returnedTranscript).toBe("こんにちは");
   });
 
   it("should update interimTranscript for non-final results", () => {

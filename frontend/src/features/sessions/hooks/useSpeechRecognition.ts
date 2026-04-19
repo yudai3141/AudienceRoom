@@ -12,8 +12,6 @@ type SpeechRecognitionState = {
 type UseSpeechRecognitionOptions = {
   language?: string;
   continuous?: boolean;
-  onResult?: (transcript: string) => void;
-  onEnd?: () => void;
 };
 
 type SpeechRecognitionEvent = {
@@ -52,7 +50,7 @@ function checkSpeechRecognitionSupport(): boolean {
 }
 
 export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) {
-  const { language = "ja-JP", continuous = false, onResult, onEnd } = options;
+  const { language = "ja-JP", continuous = false } = options;
 
   const isSupported = useMemo(() => checkSpeechRecognitionSupport(), []);
 
@@ -64,13 +62,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   });
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const onResultRef = useRef(onResult);
-  const onEndRef = useRef(onEnd);
-
-  useEffect(() => {
-    onResultRef.current = onResult;
-    onEndRef.current = onEnd;
-  }, [onResult, onEnd]);
+  const transcriptRef = useRef("");
 
   useEffect(() => {
     const SpeechRecognition =
@@ -86,6 +78,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     recognition.lang = language;
 
     recognition.onstart = () => {
+      transcriptRef.current = "";
       setState((prev) => ({
         ...prev,
         isListening: true,
@@ -108,15 +101,15 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         }
       }
 
-      setState((prev) => ({
-        ...prev,
-        transcript: prev.transcript + finalTranscript,
-        interimTranscript,
-      }));
-
-      if (finalTranscript && onResultRef.current) {
-        onResultRef.current(finalTranscript);
-      }
+      setState((prev) => {
+        const newTranscript = prev.transcript + finalTranscript;
+        transcriptRef.current = newTranscript;
+        return {
+          ...prev,
+          transcript: newTranscript,
+          interimTranscript,
+        };
+      });
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -139,12 +132,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     };
 
     recognition.onend = () => {
-      setState((prev) => {
-        if (prev.transcript && onEndRef.current) {
-          onEndRef.current();
-        }
-        return { ...prev, isListening: false };
-      });
+      setState((prev) => ({ ...prev, isListening: false }));
     };
 
     recognitionRef.current = recognition;
@@ -158,6 +146,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     const recognition = recognitionRef.current;
     if (!recognition) return;
 
+    transcriptRef.current = "";
     setState((prev) => ({
       ...prev,
       transcript: "",
@@ -175,14 +164,16 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     }
   }, []);
 
-  const stopListening = useCallback(() => {
+  const stopListening = useCallback((): string => {
     const recognition = recognitionRef.current;
-    if (!recognition) return;
+    if (!recognition) return "";
 
     recognition.stop();
+    return transcriptRef.current;
   }, []);
 
   const resetTranscript = useCallback(() => {
+    transcriptRef.current = "";
     setState((prev) => ({
       ...prev,
       transcript: "",
