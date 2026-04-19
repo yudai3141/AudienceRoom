@@ -12,8 +12,6 @@ type SpeechRecognitionState = {
 type UseSpeechRecognitionOptions = {
   language?: string;
   continuous?: boolean;
-  onResult?: (transcript: string) => void;
-  onEnd?: () => void;
 };
 
 type SpeechRecognitionEvent = {
@@ -52,7 +50,7 @@ function checkSpeechRecognitionSupport(): boolean {
 }
 
 export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) {
-  const { language = "ja-JP", continuous = false, onResult, onEnd } = options;
+  const { language = "ja-JP", continuous = false } = options;
 
   const isSupported = useMemo(() => checkSpeechRecognitionSupport(), []);
 
@@ -64,13 +62,10 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   });
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const onResultRef = useRef(onResult);
-  const onEndRef = useRef(onEnd);
-
-  useEffect(() => {
-    onResultRef.current = onResult;
-    onEndRef.current = onEnd;
-  }, [onResult, onEnd]);
+  const transcriptRef = useRef("");
+  const interimTranscriptRef = useRef("");
+  // ボタンを押している間 true — onend で自動再開するかの判定に使う
+  const isHoldingRef = useRef(false);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -90,8 +85,6 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         ...prev,
         isListening: true,
         error: null,
-        transcript: "",
-        interimTranscript: "",
       }));
     };
 
@@ -108,24 +101,33 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         }
       }
 
-      setState((prev) => ({
-        ...prev,
-        transcript: prev.transcript + finalTranscript,
-        interimTranscript,
-      }));
-
-      if (finalTranscript && onResultRef.current) {
-        onResultRef.current(finalTranscript);
-      }
+      setState((prev) => {
+        const newTranscript = prev.transcript + finalTranscript;
+        transcriptRef.current = newTranscript;
+        interimTranscriptRef.current = interimTranscript;
+        return {
+          ...prev,
+          transcript: newTranscript,
+          interimTranscript,
+        };
+      });
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      // no-speech はボタン押下中の無音なので、holding 中はエラー扱いしない
+      if (event.error === "no-speech" && isHoldingRef.current) {
+        return;
+      }
+      // aborted は stopListening 時に発生するため無視
+      if (event.error === "aborted") {
+        return;
+      }
+
       const errorMessages: Record<string, string> = {
         "no-speech": "音声が検出されませんでした",
         "audio-capture": "マイクにアクセスできません",
         "not-allowed": "マイクの使用が許可されていません",
         network: "ネットワークエラーが発生しました",
-        aborted: "音声認識が中断されました",
       };
 
       const errorMessage =
@@ -139,17 +141,23 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     };
 
     recognition.onend = () => {
-      setState((prev) => {
-        if (prev.transcript && onEndRef.current) {
-          onEndRef.current();
+      // ボタンをまだ押している場合は自動再開（ブラウザ側VADによる終了対策）
+      if (isHoldingRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          // start() 失敗時はリスニング状態を解除
+          setState((prev) => ({ ...prev, isListening: false }));
         }
-        return { ...prev, isListening: false };
-      });
+        return;
+      }
+      setState((prev) => ({ ...prev, isListening: false }));
     };
 
     recognitionRef.current = recognition;
 
     return () => {
+      isHoldingRef.current = false;
       recognition.abort();
     };
   }, [language, continuous]);
@@ -158,6 +166,9 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     const recognition = recognitionRef.current;
     if (!recognition) return;
 
+    isHoldingRef.current = true;
+    transcriptRef.current = "";
+    interimTranscriptRef.current = "";
     setState((prev) => ({
       ...prev,
       transcript: "",
@@ -168,6 +179,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     try {
       recognition.start();
     } catch {
+      isHoldingRef.current = false;
       setState((prev) => ({
         ...prev,
         error: "音声認識を開始できませんでした",
@@ -175,14 +187,25 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     }
   }, []);
 
-  const stopListening = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
+  const stopListening = useCallback((): string => {
+    isHoldingRef.current = false;
 
-    recognition.stop();
+    const recognition = recognitionRef.current;
+    if (!recognition) return "";
+
+    try {
+      recognition.stop();
+    } catch {
+      // 既に停止済みの場合のエラーを無視
+    }
+
+    // final 確定済み + まだ interim に残っているテキストを合わせて返す
+    return transcriptRef.current + interimTranscriptRef.current;
   }, []);
 
   const resetTranscript = useCallback(() => {
+    transcriptRef.current = "";
+    interimTranscriptRef.current = "";
     setState((prev) => ({
       ...prev,
       transcript: "",

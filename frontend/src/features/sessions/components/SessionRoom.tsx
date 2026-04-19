@@ -597,19 +597,6 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     generateAudio: true,
   });
 
-  const handleSpeechResult = useCallback(
-    (transcript: string) => {
-      if (phase === "active" && !isProcessing && !isSpeaking) {
-        sendMessage(transcript);
-      }
-    },
-    [phase, isProcessing, isSpeaking, sendMessage],
-  );
-
-  const handleSpeechEnd = useCallback(() => {
-    // 無音検知後の処理（必要に応じて）
-  }, []);
-
   const {
     isListening,
     isSupported: isSpeechSupported,
@@ -621,9 +608,7 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     resetTranscript,
   } = useSpeechRecognition({
     language: "ja-JP",
-    continuous: false,
-    onResult: handleSpeechResult,
-    onEnd: handleSpeechEnd,
+    continuous: true,
   });
 
   const handleRequestPermissions = async () => {
@@ -647,8 +632,11 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
   }, [isProcessing, isSpeaking, phase, resetTranscript, startListening]);
 
   const handleStopSpeaking = useCallback(() => {
-    stopListening();
-  }, [stopListening]);
+    const finalText = stopListening();
+    if (finalText && phase === "active" && !isProcessing && !isSpeaking) {
+      sendMessage(finalText);
+    }
+  }, [stopListening, phase, isProcessing, isSpeaking, sendMessage]);
 
   const handleLeave = useCallback(async () => {
     if (phase === "ending" || phase === "ended") return;
