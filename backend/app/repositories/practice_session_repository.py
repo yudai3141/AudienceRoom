@@ -1,9 +1,18 @@
+from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.practice_session import PracticeSession
+from app.db.models.session_feedback import SessionFeedback
+
+
+@dataclass
+class SessionWithFeedbackFlag:
+    """PracticeSession with a pre-computed has_feedback boolean."""
+    session: PracticeSession
+    has_feedback: bool
 
 
 class PracticeSessionRepository:
@@ -71,6 +80,33 @@ class PracticeSessionRepository:
             PracticeSession.deleted_at.is_(None),
         )
         return self._db.execute(stmt).scalar_one()
+
+    def list_by_user_id_with_feedback_flag(
+        self, user_id: int, *, limit: int = 20, offset: int = 0
+    ) -> list[SessionWithFeedbackFlag]:
+        """Fetch paginated sessions with has_feedback in a single query (LEFT JOIN)."""
+        stmt = (
+            select(
+                PracticeSession,
+                SessionFeedback.id.isnot(None).label("has_feedback"),
+            )
+            .outerjoin(
+                SessionFeedback,
+                SessionFeedback.session_id == PracticeSession.id,
+            )
+            .where(
+                PracticeSession.user_id == user_id,
+                PracticeSession.deleted_at.is_(None),
+            )
+            .order_by(PracticeSession.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = self._db.execute(stmt).all()
+        return [
+            SessionWithFeedbackFlag(session=row[0], has_feedback=bool(row[1]))
+            for row in rows
+        ]
 
     def update(self, session: PracticeSession) -> PracticeSession:
         self._db.commit()
