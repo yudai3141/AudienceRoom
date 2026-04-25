@@ -109,26 +109,25 @@ class PracticeSessionService:
     def list_user_sessions_paginated(
         self, user_id: int, *, limit: int = 20, offset: int = 0
     ) -> PaginatedSessionListResponse:
-        sessions = self._repository.list_by_user_id_paginated(
+        rows = self._repository.list_by_user_id_with_feedback_flag(
             user_id, limit=limit, offset=offset
         )
         total = self._repository.count_by_user_id(user_id)
 
-        feedback_repo = SessionFeedbackRepository(self._db)
-        items = []
-        for s in sessions:
-            fb = feedback_repo.get_by_session_id(s.id)
-            items.append(SessionListItem(
-                id=s.id,
-                status=s.status,
-                mode=s.mode,
-                theme=s.theme,
-                overall_score=s.overall_score,
-                has_feedback=fb is not None,
-                started_at=s.started_at,
-                ended_at=s.ended_at,
-                created_at=s.created_at,
-            ))
+        items = [
+            SessionListItem(
+                id=row.session.id,
+                status=row.session.status,
+                mode=row.session.mode,
+                theme=row.session.theme,
+                overall_score=row.session.overall_score,
+                has_feedback=row.has_feedback,
+                started_at=row.session.started_at,
+                ended_at=row.session.ended_at,
+                created_at=row.session.created_at,
+            )
+            for row in rows
+        ]
 
         return PaginatedSessionListResponse(
             items=items, total=total, limit=limit, offset=offset
@@ -193,24 +192,23 @@ class PracticeSessionService:
         completed = self._repository.count_by_user_id_and_status(user_id, "completed")
         avg_score = self._repository.average_score_by_user_id(user_id)
 
-        recent_sessions = self._repository.list_by_user_id_paginated(
+        recent_rows = self._repository.list_by_user_id_with_feedback_flag(
             user_id, limit=5, offset=0
         )
-        feedback_repo = SessionFeedbackRepository(self._db)
-        recent_items = []
-        for s in recent_sessions:
-            fb = feedback_repo.get_by_session_id(s.id)
-            recent_items.append(SessionListItem(
-                id=s.id,
-                status=s.status,
-                mode=s.mode,
-                theme=s.theme,
-                overall_score=s.overall_score,
-                has_feedback=fb is not None,
-                started_at=s.started_at,
-                ended_at=s.ended_at,
-                created_at=s.created_at,
-            ))
+        recent_items = [
+            SessionListItem(
+                id=row.session.id,
+                status=row.session.status,
+                mode=row.session.mode,
+                theme=row.session.theme,
+                overall_score=row.session.overall_score,
+                has_feedback=row.has_feedback,
+                started_at=row.session.started_at,
+                ended_at=row.session.ended_at,
+                created_at=row.session.created_at,
+            )
+            for row in recent_rows
+        ]
 
         return DashboardResponse(
             total_sessions=total,
