@@ -27,6 +27,9 @@ postgres_data/
 .vscode/
 .idea/
 
+# Deploy guide (contains credentials/URLs)
+docs/deploy-guide.md
+
 # Logs
 *.log
 
