@@ -18,16 +18,28 @@ flowchart TB
     end
 
     subgraph GCP["Google Cloud Platform"]
-        subgraph Frontend["フロントエンド"]
-            CloudRun_FE["Cloud Run<br/>(Next.js)"]
-        end
+        LB["Cloud Load Balancing<br/>(HTTPS 終端 / パスルーティング)"]
 
-        subgraph SSELayer["SSE 接続層 (軽量)"]
-            CloudRun_GW["Cloud Run<br/>(SSE ゲートウェイ)"]
-        end
+        subgraph VPC["VPC (プライベートネットワーク)"]
+            subgraph Frontend["フロントエンド"]
+                CloudRun_FE["Cloud Run<br/>(Next.js)"]
+            end
 
-        subgraph Worker["ワーカー層 (重い処理)"]
-            CloudRun_WK["Cloud Run<br/>(FastAPI ワーカー)"]
+            subgraph SSELayer["SSE 接続層 (軽量)"]
+                CloudRun_GW["Cloud Run<br/>(SSE ゲートウェイ)"]
+            end
+
+            subgraph Worker["ワーカー層 (重い処理)"]
+                CloudRun_WK["Cloud Run<br/>(FastAPI ワーカー)"]
+            end
+
+            subgraph TTS["音声合成"]
+                CloudRun_VV["Cloud Run<br/>(VOICEVOX)"]
+            end
+
+            subgraph Data["データ"]
+                CloudSQL["Cloud SQL<br/>(PostgreSQL)"]
+            end
         end
 
         subgraph Messaging["メッセージング"]
@@ -39,16 +51,12 @@ flowchart TB
             CDN["Cloud CDN"]
         end
 
-        subgraph Data["データ"]
-            CloudSQL["Cloud SQL<br/>(PostgreSQL)"]
+        subgraph CI["イメージ管理"]
+            AR["Artifact Registry<br/>(Docker イメージ)"]
         end
 
         subgraph Auth["認証"]
             FirebaseAuth["Firebase<br/>Authentication"]
-        end
-
-        subgraph TTS["音声合成"]
-            CloudRun_VV["Cloud Run<br/>(VOICEVOX)"]
         end
     end
 
@@ -56,41 +64,55 @@ flowchart TB
         LLM["Gemini API"]
     end
 
-    Browser -->|HTTPS| CloudRun_FE
+    Browser -->|HTTPS| LB
+    LB -->|"/*"| CloudRun_FE
+    LB -->|"/api/stream/*"| CloudRun_GW
     Browser -->|Firebase SDK| FirebaseAuth
-    Browser ---|"① POST リクエスト"| CloudRun_GW
-    CloudRun_GW ---|"② SSE 接続保持"| Browser
+
     CloudRun_GW -->|subscribe| PubSub
-    CloudRun_GW -->|"リクエスト転送"| CloudRun_WK
+    CloudRun_GW -->|"VPC 内通信"| CloudRun_WK
 
     CloudRun_WK -->|publish| PubSub
-    CloudRun_WK -->|SQL| CloudSQL
+    CloudRun_WK -->|"プライベート IP"| CloudSQL
     CloudRun_WK -->|generate_stream| LLM
-    CloudRun_WK -->|audio_query + synthesis| CloudRun_VV
+    CloudRun_WK -->|"VPC 内通信"| CloudRun_VV
     CloudRun_WK -->|"WAV アップロード"| GCS
     CloudRun_WK -->|トークン検証| FirebaseAuth
 
     GCS --> CDN
-    Browser -->|"④ 音声ダウンロード"| CDN
+    Browser -->|"音声ダウンロード"| CDN
+
+    AR -.->|pull| CloudRun_FE
+    AR -.->|pull| CloudRun_GW
+    AR -.->|pull| CloudRun_WK
+    AR -.->|pull| CloudRun_VV
 ```
+
+**Cloud Load Balancing**: Phase 1 と同様に全リクエストの入口。パスルーティングで SSE ストリーミング系（`/api/stream/*`）を SSE ゲートウェイに振り分ける。
+
+**VPC**: Cloud SQL、VOICEVOX、FastAPI ワーカー、SSE ゲートウェイ間の通信はプライベートネットワーク内で完結。Cloud Pub/Sub と Cloud Storage は VPC 外のマネージドサービスだが、VPC Service Controls で制限可能。
+
+**Artifact Registry**: Phase 1 に加え、SSE ゲートウェイのイメージも管理する。
 
 ## 通信の流れ
 
 ```mermaid
 sequenceDiagram
     participant B as ブラウザ
+    participant LB as Cloud LB
     participant GW as SSE ゲートウェイ
     participant PS as Cloud Pub/Sub
     participant WK as FastAPI ワーカー
     participant DB as Cloud SQL
     participant LLM as Gemini API
     participant VV as VOICEVOX
-    participant GCS as Cloud Storage
+    participant GCS as Cloud Storage / CDN
 
-    B->>GW: POST /conversation/message/stream
+    B->>LB: POST /api/stream/conversation/message
+    LB->>GW: ルーティング (/api/stream/* → GW)
     GW->>GW: SSE 接続を開く
     GW->>PS: subscribe(session_id)
-    GW->>WK: リクエスト転送
+    GW->>WK: リクエス��転送 (VPC 内通信)
 
     Note over WK: 重い処理はここで実行
 
@@ -102,16 +124,19 @@ sequenceDiagram
         LLM-->>WK: LLMStreamChunk
         WK->>PS: publish(text_chunk)
         PS-->>GW: deliver(text_chunk)
-        GW-->>B: SSE: text_chunk
+        GW-->>LB: SSE: text_chunk
+        LB-->>B: SSE: text_chunk
     end
 
     loop 文の区切りごと
         WK->>VV: POST /audio_query + /synthesis
-        VV-->>WK: WAV バイナリ
-        WK->>GCS: アップロード + Signed URL 生成
+        Note over WK,VV: VPC 内通信
+        VV-->>WK: WAV バイ��リ
+        WK->>GCS: WAV アップロード + Signed URL 生成
         WK->>PS: publish(audio_chunk + URL)
         PS-->>GW: deliver(audio_chunk)
-        GW-->>B: SSE: audio_chunk {audio_url, sequence}
+        GW-->>LB: SSE: audio_chunk {audio_url, sequence}
+        LB-->>B: SSE: audio_chunk {audio_url, sequence}
         B->>GCS: GET audio_url (CDN 経由)
         GCS-->>B: WAV バイナリ
     end
@@ -119,7 +144,8 @@ sequenceDiagram
     WK->>DB: INSERT AI メッセージ
     WK->>PS: publish(complete)
     PS-->>GW: deliver(complete)
-    GW-->>B: SSE: complete
+    GW-->>LB: SSE: complete
+    LB-->>B: SSE: complete
     GW->>GW: SSE 接続を閉じる
 
     Note over B: Audio API で音声再生
