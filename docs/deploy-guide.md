@@ -6,13 +6,13 @@
 そのまま Google Cloud Run に載せて、インターネットからアクセスできるようにする。
 
 ```
-ローカル (Docker Compose)          →    GCP (Cloud Run)
+ローカル (Docker Compose)          ->    GCP (Cloud Run)
 ┌──────────────┐                      ┌──────────────────────┐
-│ Frontend     │ localhost:3000   →   │ Cloud Run (Frontend) │ https://frontend-xxx.run.app
-│ Backend      │ localhost:8000   →   │ Cloud Run (Backend)  │ https://backend-xxx.run.app
-│ VOICEVOX     │ localhost:50021  →   │ Cloud Run (VOICEVOX) │ https://voicevox-xxx.run.app
-│ PostgreSQL   │ localhost:5432   →   │ Cloud SQL            │ マネージド DB
-│ Firebase Emu │ localhost:9099   →   │ Firebase Auth        │ 本番 Firebase
+│ Frontend     │ localhost:3000   ->   │ Cloud Run (Frontend) │ https://frontend-xxx.run.app
+│ Backend      │ localhost:8000   ->   │ Cloud Run (Backend)  │ https://backend-xxx.run.app
+│ VOICEVOX     │ localhost:50021  ->   │ Cloud Run (VOICEVOX) │ https://voicevox-xxx.run.app
+│ PostgreSQL   │ localhost:5432   ->   │ Cloud SQL            │ マネージド DB
+│ Firebase Emu │ localhost:9099   ->   │ Firebase Auth        │ 本番 Firebase
 └──────────────┘                      └──────────────────────┘
 ```
 
@@ -218,7 +218,7 @@ pkill -f cloud-sql-proxy
    ```
 
 2. Firebase Console (https://console.firebase.google.com/project/audienceroom) で:
-   - Authentication → Sign-in method → Google を有効化
+   - Authentication -> Sign-in method -> Google を有効化
    - 承認済みドメインに Cloud Run の Frontend URL を追加
    - ウェブアプリを追加して `firebaseConfig` の値を取得
 
@@ -226,7 +226,7 @@ pkill -f cloud-sql-proxy
 
 ## Step 10: 動作確認
 
-Frontend の URL にアクセスして、ログイン → セッション作成 → 会話ができれば完了。
+Frontend の URL にアクセスして、ログイン -> セッション作成 -> 会話ができれば完了。
 
 ---
 
@@ -256,7 +256,7 @@ gcloud run deploy frontend --image=$REPO/frontend:latest --region=asia-northeast
 
 | 問題 | 原因 | 対処 |
 |------|------|------|
-| Cloud Run がイメージを拒否 | ARM Mac でビルド → x86 が必要 | `--platform linux/amd64` を付ける |
+| Cloud Run がイメージを拒否 | ARM Mac でビルド -> x86 が必要 | `--platform linux/amd64` を付ける |
 | DB 接続エラー | Cloud SQL は Unix ソケット接続 | `DATABASE_URL` に `?host=/cloudsql/...` を使う |
 | CORS エラー (OPTIONS 400) | Backend の許可オリジンに Cloud Run URL がない | `CORS_ORIGIN` 環境変数で追加 |
 | VOICEVOX 音声が出ない | `http://` ハードコード + Cloud Run は HTTPS | ポート 443 で HTTPS 接続に対応 |
