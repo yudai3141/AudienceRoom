@@ -9,8 +9,8 @@ MVP / 少人数利用を想定したシンプルな構成。
 
 ```mermaid
 flowchart TB
-    subgraph Client["クライアント (ブラウザ)"]
-        Browser["Next.js SPA"]
+    subgraph Client["クライアント"]
+        Browser["ブラウザ"]
     end
 
     subgraph GCP["Google Cloud Platform"]
