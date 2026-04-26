@@ -40,7 +40,11 @@ class TTSService:
     ) -> None:
         self.host = host or settings.VOICEVOX_HOST
         self.port = port or settings.VOICEVOX_PORT
-        self.base_url = f"http://{self.host}:{self.port}"
+        scheme = "https" if self.port == 443 else "http"
+        if self.port in (80, 443):
+            self.base_url = f"{scheme}://{self.host}"
+        else:
+            self.base_url = f"{scheme}://{self.host}:{self.port}"
 
     async def synthesize(
         self,
