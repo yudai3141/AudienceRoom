@@ -239,54 +239,49 @@ Database (PostgreSQL)
 
 ## 9. AI Integration Architecture
 
-### 9.1 Conversation Flow (MVP: REST API)
+### 9.1 Conversation Flow (SSE Streaming)
+
+LLM のストリーミング出力と、文ごとの TTS 生成を並列で進めることで、応答の体感速度を最大化しています。
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Frontend (Browser)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│  [ユーザー発話開始]                                               │
+│  [ユーザー発話 → STT (Web Speech API, PTT 方式)]                 │
 │       ↓                                                          │
-│  [STT: Web Speech API] ← 無音検知で自動停止                       │
+│  [POST /conversation/message/stream]                             │
 │       ↓                                                          │
-│  [onend イベント: 発話終了検知]                                   │
+│  [SSE 受信: text_chunk / audio_chunk / complete]                 │
+│       ├─ text_chunk: 逐次画面に表示                               │
+│       └─ audio_chunk: sequence 順でキューに入れて順次再生         │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────┐
+│                         Backend (FastAPI)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  [POST /conversation/message/stream 受信]                        │
 │       ↓                                                          │
-│  [POST /conversation/message] ─────────┐                         │
-│                                        │                         │
-│  [Response: テキスト + 音声] ←─────────┼─────────┐               │
-│       ↓                                │         │               │
-│  [音声再生 (WAV)]                       │         │               │
-│       ↓                                │         │               │
-│  [再生完了 → 次の発話待ち]              │         │               │
-└────────────────────────────────────────┼─────────┼───────────────┘
-                                         │         │
-┌────────────────────────────────────────┼─────────┼───────────────┐
-│                         Backend (FastAPI)        │               │
-├────────────────────────────────────────┼─────────┼───────────────┤
-│                                        ↓         │               │
-│  [POST /conversation/message 受信]               │               │
-│       ↓                                          │               │
-│  [session_messages に保存（ユーザー発話）]        │               │
-│       ↓                                          │               │
-│  [LLM API (Gemini): 応答生成]                    │               │
-│       ↓                                          │               │
-│  [session_messages に保存（AI応答）]              │               │
-│       ↓                                          │               │
-│  [VOICEVOX: TTS 音声生成]                         │               │
-│       ↓                                          │               │
-│  [Response: { text, audio_base64 }] ─────────────┘               │
+│  [session_messages 保存（ユーザー発話）]                          │
+│       ↓                                                          │
+│  [asyncio.Queue による Producer-Consumer]                        │
+│       ├─ Producer: LLM ストリーミング → 文の区切りで TTS 生成    │
+│       └─ Consumer: SSE で text_chunk / audio_chunk を yield       │
+│       ↓                                                          │
+│  [session_messages 保存（AI応答）]                                │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────┐
+│              VOICEVOX (Compute Engine, VPC 内)                   │
+├─────────────────────────────────────────────────────────────────┤
+│  [POST /audio_query] → [POST /synthesis] → WAV 返却              │
 └─────────────────────────────────────────────────────────────────┘
-                                         │
-┌────────────────────────────────────────┼─────────────────────────┐
-│                         VOICEVOX (Docker)                        │
-├──────────────────────────────────────────────────────────────────┤
-│  [POST /audio_query] → [POST /synthesis] → 音声データ返却        │
-└──────────────────────────────────────────────────────────────────┘
 ```
 
-**将来拡張: WebSocket**
-- リアルタイムストリーミング応答が必要な場合に検討
-- LLM のストリーミング出力 + 逐次 TTS 生成
+**SSE イベント種別:**
+- `metadata`: セッション情報（speaker など）
+- `text_chunk`: LLM の出力テキスト（逐次）
+- `audio_chunk`: TTS 生成済み音声（base64 + sequence）
+- `complete`: 応答完了
 
 ### 9.2 Feedback Generation Flow
 
@@ -312,11 +307,12 @@ Database (PostgreSQL)
 
 ### 9.3 Technology Selection
 
-| 機能 | MVP | 将来拡張 | 説明 |
+| 機能 | 採用 | 将来拡張 | 説明 |
 |------|-----|----------|------|
-| STT | Web Speech API | Whisper | ブラウザ内蔵、無料 |
-| LLM | Gemini 2.5 Flash | OpenAI GPT-4o | 高速・低コスト、日本語対応 |
-| TTS | VOICEVOX (Docker) | - | 高品質日本語音声、キャラクター音声対応 |
+| STT | Web Speech API | Whisper | ブラウザ内蔵、無料、ペイロードが軽量 |
+| LLM | Gemini 2.5 Flash (Google AI Studio) | Vertex AI 経由 Gemini / OpenAI GPT-4o | 高速・低コスト、日本語対応 |
+| TTS | VOICEVOX (Compute Engine, VPC 内) | MIG による水平スケール | 高品質日本語音声、キャラクター音声対応 |
+| 通信 | SSE ストリーミング | Pub/Sub 分離 + Cloud Storage 音声配信 | 体感速度を最大化 |
 
 **LLM Provider 設計:**
 - `LLMProvider` インターフェースで抽象化
@@ -332,27 +328,28 @@ backend/app/
 │   │   ├── __init__.py
 │   │   ├── llm/
 │   │   │   ├── __init__.py
-│   │   │   ├── base.py              # LLMProvider 抽象クラス
-│   │   │   ├── gemini.py            # GeminiProvider
-│   │   │   ├── openai.py            # OpenAIProvider（将来用）
-│   │   │   └── factory.py           # get_llm_provider()
-│   │   ├── conversation_service.py  # 会話ロジック
-│   │   ├── feedback_generator.py    # FB 生成ロジック
-│   │   └── tts_service.py           # VOICEVOX TTS
+│   │   │   ├── base.py                          # LLMProvider 抽象クラス
+│   │   │   ├── gemini.py                        # GeminiProvider
+│   │   │   ├── openai.py                        # OpenAIProvider
+│   │   │   └── factory.py                       # get_llm_provider()
+│   │   ├── streaming_conversation_service.py    # SSE ストリーミング会話
+│   │   ├── feedback_generator.py                # FB 生成
+│   │   └── tts_service.py                       # VOICEVOX TTS
 │   └── prompts/
-│       ├── __init__.py
-│       ├── interview.py             # 面接用プロンプト
-│       ├── presentation.py          # プレゼン用プロンプト
-│       └── feedback.py              # FB 生成用プロンプト
+│       ├── interview.py                         # 面接用
+│       ├── presentation.py                      # プレゼン用
+│       └── feedback.py                          # FB 生成用
 ├── api/routes/
-│   └── conversation.py              # POST /conversation/message
+│   └── conversation.py                          # POST /conversation/message/stream
 
 frontend/src/features/sessions/
 ├── hooks/
-│   ├── useSpeechRecognition.ts      # STT (Web Speech API + 無音検知)
-│   └── useConversation.ts           # REST API 通信 + 音声再生
+│   ├── useSpeechRecognition.ts                  # STT (Web Speech API, PTT 方式)
+│   └── useStreamingConversation.ts              # SSE 通信 + 音声キュー再生
 ├── components/
-│   └── SessionRoom.tsx              # 統合
+│   └── SessionRoom.tsx                          # 統合
+├── lib/api/
+│   └── sse.ts                                   # SSE パーサ (ReadableStream)
 ```
 
 ### 9.5 VOICEVOX Integration
@@ -559,9 +556,16 @@ audio = requests.post(
 - Firebase Auth Emulator（ローカル開発）
 
 ### 11.4 Infrastructure
-- Docker / Docker Compose
-- Firebase Emulator Suite
-- Cloud Run + Cloud SQL for PostgreSQL（本番想定）
+- **ローカル**: Docker Compose（Frontend / Backend / DB / VOICEVOX / Firebase Emulator Suite）
+- **本番 (GCP)**:
+  - Cloud Run（Frontend / Backend）
+  - Compute Engine（VOICEVOX、VPC 内で常時起動）
+  - Cloud SQL for PostgreSQL（マネージド DB）
+  - Serverless VPC Connector（Cloud Run -> VPC 内通信）
+  - Artifact Registry（Docker イメージ管理）
+  - Firebase Authentication（本番）
+
+詳細は [`docs/deploy-guide.md`](./docs/deploy-guide.md) と [`docs/cloud/`](./docs/cloud/) を参照。
 
 ### 11.5 CI/CD
 - GitHub Actions
@@ -622,36 +626,42 @@ make generate-api
 AudienceRoom/
 ├── frontend/
 │   ├── src/
-│   │   ├── app/            # Next.js App Router（routing only）
-│   │   ├── features/       # Feature logic
-│   │   ├── components/     # Reusable UI components
-│   │   ├── lib/api/        # API client + generated types
-│   │   ├── hooks/          # Reusable hooks
-│   │   └── types/          # Manual types
-│   ├── Dockerfile
+│   │   ├── app/                # Next.js App Router（routing only）
+│   │   ├── features/           # Feature logic
+│   │   ├── components/         # Reusable UI components
+│   │   ├── lib/api/            # API client + SSE parser
+│   │   ├── generated/          # OpenAPI 自動生成型
+│   │   ├── hooks/              # Reusable hooks
+│   │   └── types/              # Manual types
+│   ├── Dockerfile              # ローカル開発用
+│   ├── Dockerfile.prod         # 本番ビルド (Next.js standalone)
 │   └── package.json
 ├── backend/
 │   ├── app/
-│   │   ├── api/routes/     # FastAPI routes
-│   │   ├── core/           # Config / Auth / Firebase
+│   │   ├── api/routes/         # FastAPI routes
+│   │   ├── core/               # Config / Auth / Firebase
 │   │   ├── db/
-│   │   │   ├── models/     # SQLAlchemy models
-│   │   │   └── migrations/ # Alembic migrations
-│   │   ├── repositories/   # DB access layer
-│   │   ├── schemas/        # Request / response schemas
-│   │   ├── services/       # Business logic
+│   │   │   ├── models/         # SQLAlchemy models
+│   │   │   └── migrations/     # Alembic migrations
+│   │   ├── repositories/       # DB access layer
+│   │   ├── schemas/            # Request / response schemas
+│   │   ├── services/           # Business logic（AI / プロンプト等）
 │   │   └── main.py
-│   ├── scripts/            # Utility scripts
+│   ├── scripts/                # OpenAPI export 等のスクリプト
 │   ├── tests/
-│   ├── Dockerfile
+│   ├── Dockerfile              # ローカル開発用
+│   ├── Dockerfile.prod         # 本番ビルド
 │   └── pyproject.toml
 ├── firebase/
-│   ├── firebase.json       # Emulator config
+│   ├── firebase.json           # Emulator config
 │   └── Dockerfile
-├── .github/workflows/      # CI workflows
+├── docs/
+│   ├── deploy-guide.md         # GCP デプロイ手順
+│   └── cloud/                  # クラウドアーキテクチャ図 (Phase 1 / 2)
+├── .github/workflows/          # CI workflows
 ├── docker-compose.yml
 ├── Makefile
-├── openapi.json            # Auto-generated OpenAPI spec
+├── openapi.json                # OpenAPI spec（自動生成）
 ├── README.md
 └── AGENTS.md
 ```
@@ -743,11 +753,48 @@ AudienceRoom/
 - [x] セッション設定の表示
 - [x] フィードバック生成オーバーレイ
 
-#### Phase 8-4: 将来拡張（WebSocket）
-- [ ] リアルタイムストリーミング応答
-- [ ] LLM ストリーミング + 逐次 TTS
+#### Phase 8-4: ストリーミング応答 ✅
+- [x] SSE による LLM ストリーミング
+- [x] 文の区切りごとの逐次 TTS 生成（asyncio.Queue Producer-Consumer）
+- [x] フロントエンド側の音声キュー再生（sequence 順）
+- [x] PTT (Push-to-Talk) 方式の発話入力
 
-### Phase 9: 仕上げ 🔜
-- [ ] E2E テスト
-- [ ] パフォーマンス最適化
-- [ ] 本番デプロイ（Cloud Run + Cloud SQL）
+### Phase 9: 本番デプロイ ✅
+- [x] 本番用 Dockerfile（Backend / Frontend）
+- [x] Cloud Run デプロイ（Frontend / Backend）
+- [x] Cloud SQL for PostgreSQL（Unix ソケット接続）
+- [x] Firebase Authentication（本番）
+- [x] Artifact Registry によるイメージ管理
+- [x] VOICEVOX を Compute Engine に移行（コールドスタート回避）
+- [x] VPC + Serverless VPC Connector 構築
+
+### Phase 10: スケーリング・拡張 🔜
+
+優先度順:
+
+#### Phase 10-1: VOICEVOX 並列化
+- [ ] Managed Instance Group (MIG) で水平スケール
+- [ ] 内部ロードバランサ経由でアクセス
+- [ ] スケーリングポリシー（CPU 使用率ベース）
+
+#### Phase 10-2: Secret Manager 移行
+- [ ] DB パスワード / Firebase 設定 / Gemini API Key を Secret Manager に
+- [ ] Cloud Run から `--set-secrets` で参照
+- [ ] ローカルは `.env` のまま（Docker Compose）
+
+#### Phase 10-3: Vertex AI 経由 Gemini
+- [ ] `LLMProvider` に Vertex AI 実装を追加
+- [ ] サービスアカウント認証への切り替え
+- [ ] API Key 管理を不要化
+
+#### Phase 10-4: ユーザー知識グラフ
+- [ ] ユーザーの過去セッションから関心領域・弱点を抽出
+- [ ] 知識グラフ（テーマ・スキル・改善点の関連）を構築
+- [ ] AI のプロンプトに反映してパーソナライズ
+
+### Phase 11: さらにスケールが必要になったら（Phase 2 設計）
+- [ ] SSE ゲートウェイ + Cloud Pub/Sub による接続層分離
+- [ ] Cloud Storage + CDN による音声配信分離
+- [ ] Cloud Load Balancing + 独自ドメイン
+
+詳細は [`docs/cloud/phase2_scaling.md`](./docs/cloud/phase2_scaling.md) 参照。
