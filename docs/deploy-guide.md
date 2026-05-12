@@ -321,6 +321,41 @@ gcloud compute ssh voicevox-vm --zone=asia-northeast1-a --tunnel-through-iap \
              sudo systemctl restart konlet-startup"
 ```
 
+## Step 13: Secret Manager 移行（推奨）
+
+**やること**: DB パスワード・API Key を Cloud Run の環境変数から Secret Manager に移して隠す。コードの変更は不要。
+
+```bash
+# Secret Manager API を有効化
+gcloud services enable secretmanager.googleapis.com --project=audienceroom
+
+# シークレットを登録
+echo -n "postgresql+psycopg://app:<password>@/audienceroom?host=/cloudsql/audienceroom:asia-northeast1:audienceroom-db" \
+  | gcloud secrets create DATABASE_URL --data-file=- --project=audienceroom
+
+echo -n "<gemini-api-key>" \
+  | gcloud secrets create GEMINI_API_KEY --data-file=- --project=audienceroom
+
+# Cloud Run のサービスアカウントに参照権限を付与
+gcloud projects add-iam-policy-binding audienceroom \
+  --member="serviceAccount:<project-number>-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+# --set-secrets で再デプロイ（--set-env-vars から DATABASE_URL, GEMINI_API_KEY を削除）
+gcloud run deploy backend \
+  --image=asia-northeast1-docker.pkg.dev/audienceroom/audienceroom/backend:latest \
+  --region=asia-northeast1 \
+  --set-secrets="DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+  --set-env-vars="APP_ENV=production,FIREBASE_PROJECT_ID=audienceroom,..."
+```
+
+**ポイント**:
+- `--set-secrets` で渡した値は GCP Console で `*****` 表示になり、値が隠れる
+- アプリ側は `os.getenv("DATABASE_URL")` のままで変更不要（GCP が環境変数として注入）
+- シークレットを更新したときは `gcloud secrets versions add` でバージョンを追加し、Cloud Run を再デプロイ
+
+---
+
 ## ハマりポイントまとめ
 
 | 問題 | 原因 | 対処 |

@@ -768,26 +768,24 @@ AudienceRoom/
 - [x] VOICEVOX を Compute Engine に移行（コールドスタート回避）
 - [x] VPC + Serverless VPC Connector 構築
 
-### Phase 10: スケーリング・拡張 🔜
+### Phase 10: スケーリング・拡張
 
-優先度順:
+#### Phase 10-1: 並列 TTS ✅
+- [x] 文が完成するたびに `asyncio.create_task` で TTS を即座に起動
+- [x] 全文の音声合成を並列実行し、sequence 順を保って emit
+- [x] フロントエンド変更なし（audio_chunk の sequence 順再生は既に対応済み）
 
-#### Phase 10-1: VOICEVOX 並列化
-- [ ] Managed Instance Group (MIG) で水平スケール
-- [ ] 内部ロードバランサ経由でアクセス
-- [ ] スケーリングポリシー（CPU 使用率ベース）
+#### Phase 10-2: Secret Manager 移行 ✅
+- [x] `DATABASE_URL` / `GEMINI_API_KEY` を Secret Manager に登録
+- [x] Cloud Run から `--set-secrets` で参照
+- [x] ローカルは `.env` のまま（Docker Compose）
 
-#### Phase 10-2: Secret Manager 移行
-- [ ] DB パスワード / Firebase 設定 / Gemini API Key を Secret Manager に
-- [ ] Cloud Run から `--set-secrets` で参照
-- [ ] ローカルは `.env` のまま（Docker Compose）
+#### Phase 10-3: Gemini SDK 移行 ✅
+- [x] `google-generativeai`（旧 SDK・廃止済み）から `google-genai`（新 SDK）に移行
+- [x] `GeminiProvider` を `Client` ベースの新 API に書き換え
+- [x] FutureWarning と 403 アクセス拒否リスクを解消
 
-#### Phase 10-3: Vertex AI 経由 Gemini
-- [ ] `LLMProvider` に Vertex AI 実装を追加
-- [ ] サービスアカウント認証への切り替え
-- [ ] API Key 管理を不要化
-
-#### Phase 10-4: ユーザー知識グラフ
+#### Phase 10-4: ユーザー知識グラフ 🔜
 - [ ] ユーザーの過去セッションから関心領域・弱点を抽出
 - [ ] 知識グラフ（テーマ・スキル・改善点の関連）を構築
 - [ ] AI のプロンプトに反映してパーソナライズ
