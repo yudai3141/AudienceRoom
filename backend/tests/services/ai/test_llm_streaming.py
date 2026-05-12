@@ -24,24 +24,21 @@ class TestGeminiProviderStreaming:
         """Test basic streaming functionality with mock."""
         provider = GeminiProvider(api_key="test-key", model="gemini-2.0-flash")
 
-        # Mock the chat.send_message_async to return a stream
         mock_chunks = [
             MagicMock(text="Hello"),
             MagicMock(text=" world"),
             MagicMock(text="!"),
         ]
 
-        async def mock_stream():
-            for chunk in mock_chunks:
-                yield chunk
+        async def mock_generate_content_stream(**kwargs):
+            async def _inner():
+                for chunk in mock_chunks:
+                    yield chunk
+            return _inner()
 
-        mock_chat = MagicMock()
-        mock_chat.send_message_async = AsyncMock(return_value=mock_stream())
-
-        mock_model = MagicMock()
-        mock_model.start_chat = MagicMock(return_value=mock_chat)
-
-        monkeypatch.setattr(provider, "model", mock_model)
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content_stream = mock_generate_content_stream
+        monkeypatch.setattr(provider, "_client", mock_client)
 
         messages = [LLMMessage(role="user", content="Hi")]
         chunks = []
