@@ -263,72 +263,98 @@ class StreamingConversationService:
         speaker_id = self._get_speaker_id(speaker)
 
         async def llm_and_tts_task():
-            """LLMストリーミングとTTS生成のバックグラウンドタスク"""
+            """LLMストリーミングとTTS並列生成のバックグラウンドタスク。
+            文が完成するたびに即座にTTSタスクを起動し、sequence順にemitする。
+            """
             try:
-                accumulated_text = ""
                 sentence_buffer = ""
                 audio_sequence = 0
+                # (seq_no, text, asyncio.Task) — sequence順で管理
+                pending: list[tuple[int, str, asyncio.Task]] = []
+                next_emit_seq = 1
+
+                def flush_completed() -> list[StreamEvent]:
+                    """完了済みタスクをsequence順にflushする（非ブロッキング）"""
+                    nonlocal next_emit_seq
+                    events = []
+                    while (
+                        pending
+                        and pending[0][0] == next_emit_seq
+                        and pending[0][2].done()
+                    ):
+                        seq, text, task = pending.pop(0)
+                        try:
+                            result = task.result()
+                            events.append(
+                                StreamEvent(
+                                    event_type="audio_chunk",
+                                    data={
+                                        "audio_base64": result.audio_base64,
+                                        "sequence": seq,
+                                        "text": text,
+                                    },
+                                )
+                            )
+                        except Exception as e:
+                            logger.warning(f"TTS failed seq={seq}: {e}")
+                        next_emit_seq += 1
+                    return events
 
                 async for chunk in self._llm.generate_stream(prompt, temperature=0.8):
                     if chunk.content:
-                        # テキストチャンクを即座に送信
                         await event_queue.put(
                             StreamEvent(event_type="text_chunk", data={"text": chunk.content})
                         )
-
-                        accumulated_text += chunk.content
                         sentence_buffer += chunk.content
 
-                        # 完全な文を抽出
                         sentences = self._extract_sentences(sentence_buffer)
-                        if sentences:
-                            for sentence in sentences[:-1]:  # 最後（未完成）を除く全て
+                        if len(sentences) > 1:
+                            for sentence in sentences[:-1]:
                                 if sentence.strip():
-                                    # この文に対してTTSを生成
-                                    try:
-                                        tts_result = await self._tts.synthesize(
+                                    audio_sequence += 1
+                                    # TTSタスクを即座に起動（awaitしない）
+                                    task = asyncio.create_task(
+                                        self._tts.synthesize(
                                             text=sentence.strip(),
                                             speaker_id=speaker_id,
                                             speed_scale=1.3,
                                         )
-                                        audio_sequence += 1
-                                        await event_queue.put(
-                                            StreamEvent(
-                                                event_type="audio_chunk",
-                                                data={
-                                                    "audio_base64": tts_result.audio_base64,
-                                                    "sequence": audio_sequence,
-                                                    "text": sentence.strip(),
-                                                },
-                                            )
-                                        )
-                                    except Exception as e:
-                                        logger.warning(f"TTS generation failed for sentence: {e}")
-
-                            # 未完成の文をバッファに保持
+                                    )
+                                    pending.append((audio_sequence, sentence.strip(), task))
                             sentence_buffer = sentences[-1]
 
-                # 残りのテキストを処理
+                        # 完了済みタスクを非ブロッキングでflush
+                        for event in flush_completed():
+                            await event_queue.put(event)
+
+                # 残りのバッファを処理
                 if sentence_buffer.strip():
-                    try:
-                        tts_result = await self._tts.synthesize(
+                    audio_sequence += 1
+                    task = asyncio.create_task(
+                        self._tts.synthesize(
                             text=sentence_buffer.strip(),
                             speaker_id=speaker_id,
                             speed_scale=1.3,
                         )
-                        audio_sequence += 1
+                    )
+                    pending.append((audio_sequence, sentence_buffer.strip(), task))
+
+                # 残り全タスクをsequence順にawait & emit
+                for seq, text, task in pending:
+                    try:
+                        result = await task
                         await event_queue.put(
                             StreamEvent(
                                 event_type="audio_chunk",
                                 data={
-                                    "audio_base64": tts_result.audio_base64,
-                                    "sequence": audio_sequence,
-                                    "text": sentence_buffer.strip(),
+                                    "audio_base64": result.audio_base64,
+                                    "sequence": seq,
+                                    "text": text,
                                 },
                             )
                         )
                     except Exception as e:
-                        logger.warning(f"TTS generation failed for final text: {e}")
+                        logger.warning(f"TTS failed seq={seq}: {e}")
 
             except Exception as e:
                 logger.exception(f"Error in LLM/TTS task: {e}")
