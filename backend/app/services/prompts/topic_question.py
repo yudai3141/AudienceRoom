@@ -58,4 +58,11 @@ def build_topic_question_prompt(
 - rationale は「なぜこの質問をするのか」を簡潔に
 """
 
-    return [LLMMessage(role="system", content=system_prompt)]
+    # LLM プロバイダ (Gemini 等) は user メッセージを最低 1 つ要求するため付与する。
+    return [
+        LLMMessage(role="system", content=system_prompt),
+        LLMMessage(
+            role="user",
+            content="上記の候補ノードから 1 つ選び、深掘り質問を JSON で出力してください。",
+        ),
+    ]
