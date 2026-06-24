@@ -1,8 +1,14 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card, Badge, Button, Spinner } from "@/components/ui";
 import { useSessionDetail } from "../hooks/useSessionDetail";
+import {
+  useUpdateTopicMemory,
+  type TopicUpdateResult,
+} from "../hooks/useUpdateTopicMemory";
+import { TopicUpdateCard } from "@/features/topics/components/TopicUpdateCard";
 
 type FeedbackDisplayProps = {
   sessionId: number;
@@ -159,6 +165,23 @@ function MetricsDisplay({
 export function FeedbackDisplay({ sessionId }: FeedbackDisplayProps) {
   const { data: session, isLoading, error } = useSessionDetail(sessionId);
 
+  // 練習後に一度だけトピックグラフを更新し、差分を表示する。
+  const updateTopic = useUpdateTopicMemory();
+  const [topicUpdate, setTopicUpdate] = useState<TopicUpdateResult | null>(null);
+  const triggeredRef = useRef(false);
+
+  useEffect(() => {
+    if (session?.status === "completed" && !triggeredRef.current) {
+      triggeredRef.current = true;
+      updateTopic
+        .mutateAsync(sessionId)
+        .then(setTopicUpdate)
+        .catch(() => {
+          /* 失敗してもフィードバック表示は継続 */
+        });
+    }
+  }, [session?.status, sessionId, updateTopic]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -253,6 +276,16 @@ export function FeedbackDisplay({ sessionId }: FeedbackDisplayProps) {
           </div>
         </Card>
       )}
+
+      {updateTopic.isPending && (
+        <Card>
+          <div className="flex items-center justify-center gap-2 px-6 py-4 text-sm text-slate-500">
+            <Spinner size="sm" />
+            トピックを更新中…
+          </div>
+        </Card>
+      )}
+      {topicUpdate && <TopicUpdateCard result={topicUpdate} />}
 
       <div className="flex justify-center gap-4">
         <Link href="/sessions">

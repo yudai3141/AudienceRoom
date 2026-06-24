@@ -9,6 +9,11 @@ const COVERAGE_MAP: Record<
   gap: { variant: "default", label: "未説明" },
 };
 
+export function coverageLabel(coverage: string | null): string {
+  if (coverage == null) return "なし";
+  return COVERAGE_MAP[coverage]?.label ?? coverage;
+}
+
 export function CoverageBadge({ coverage }: { coverage: string }) {
   const m = COVERAGE_MAP[coverage] ?? { variant: "default" as const, label: coverage };
   return <Badge variant={m.variant}>{m.label}</Badge>;
