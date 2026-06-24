@@ -36,6 +36,11 @@ class PracticeSession(Base):
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id"), nullable=False
     )
+    # 練習対象トピック (Plan B)。interview では実質必須だが、トピックを持たない
+    # モードもありうるため nullable とし、必須性はサービス層で担保する。
+    topic_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("topics.id"), nullable=True
+    )
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="waiting", server_default="waiting"
     )
@@ -75,3 +80,4 @@ class PracticeSession(Base):
     )
 
     user = relationship("User", backref="practice_sessions", lazy="select")
+    topic = relationship("Topic", backref="practice_sessions", lazy="select")
