@@ -19,7 +19,9 @@ AudienceRoom は、面接やプレゼンなど「人前で話す場面」を再�
 - Local: Docker Compose
 - Production: Cloud Run + Cloud SQL
 
-AudienceRoom の中心概念:
+AudienceRoom の中心概念は 2 つの軸からなる。
+
+**練習の軸（揮発的・1 回の練習で完結）:**
 
 - users
 - practice_sessions
@@ -29,8 +31,15 @@ AudienceRoom の中心概念:
 - session_feedback
 - feedback_metrics
 
-「1回の練習 = 1 practice_session」である。
-設計・実装・テストは practice_sessions を中心に考えること。
+**記憶の軸（永続的・練習をまたいで育つ / Plan B 拡張）:**
+
+- topics（面接で話すエピソードを育てる永続単位）
+- topic_nodes / topic_edges（トピック内の論点・関係・矛盾をグラフ的に保持）
+- user_persona_facts（ユーザ横断のペルソナ情報）
+
+「1 回の練習 = 1 practice_session（揮発）」「topic = 記憶の永続単位」である。
+セッション進行は practice_sessions を、記憶の蓄積・深掘りは topics を中心に考えること。
+記憶層の設計は `backend/docs/db-schema-plan-b-topics.md` を正本とする。
 
 ---
 
