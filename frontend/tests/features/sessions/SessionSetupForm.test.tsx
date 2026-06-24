@@ -64,6 +64,19 @@ vi.mock("@/features/sessions/hooks/useCreateSession", () => ({
   }),
 }));
 
+vi.mock("@/features/sessions/hooks/useTopics", () => ({
+  useTopics: () => ({ data: [], isLoading: false }),
+}));
+
+const mockCreateTopicMutateAsync = vi.fn();
+
+vi.mock("@/features/sessions/hooks/useCreateTopic", () => ({
+  useCreateTopic: () => ({
+    mutateAsync: mockCreateTopicMutateAsync,
+    isPending: false,
+  }),
+}));
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -153,6 +166,7 @@ describe("SessionSetupForm", () => {
         theme: "エンジニア職の最終面接",
         user_goal: null,
         user_concerns: null,
+        topic_id: null,
       });
       expect(mockPush).toHaveBeenCalledWith("/sessions/123");
     });

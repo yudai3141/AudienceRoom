@@ -9,6 +9,7 @@ def build_presentation_prompt(
     character_name: str,
     conversation_history: list[dict],
     is_qa_phase: bool = False,
+    topic_context: str | None = None,
 ) -> list[LLMMessage]:
     """Build prompt for presentation mode conversation.
 
@@ -63,10 +64,12 @@ def build_presentation_prompt(
 - 相槌や短い反応を返す（「なるほど」「興味深いですね」など）
 - プレゼン終了時に質疑応答に移る旨を伝える"""
 
+    memory_block = f"\n\n{topic_context}\n" if topic_context else ""
+
     system_prompt = f"""あなたは「{character_name}」という名前のプレゼンの聴衆です。
 
 【設定】
-{context}
+{context}{memory_block}
 
 【あなたの振る舞い】
 {strictness_instruction}

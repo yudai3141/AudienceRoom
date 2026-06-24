@@ -2142,6 +2142,17 @@
               }
             ],
             "title": "Target Context"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
           }
         },
         "type": "object",
@@ -2394,6 +2405,17 @@
             ],
             "title": "Target Context"
           },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
           "overall_score": {
             "anyOf": [
               {
@@ -2466,6 +2488,7 @@
           "user_concerns",
           "session_brief",
           "target_context",
+          "topic_id",
           "overall_score",
           "feedback_summary",
           "started_at",

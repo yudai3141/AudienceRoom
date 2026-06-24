@@ -741,6 +741,8 @@ export interface components {
             session_brief?: string | null;
             /** Target Context */
             target_context?: string | null;
+            /** Topic Id */
+            topic_id?: number | null;
         };
         /**
          * PracticeSessionDetailResponse
@@ -819,6 +821,8 @@ export interface components {
             session_brief: string | null;
             /** Target Context */
             target_context: string | null;
+            /** Topic Id */
+            topic_id: number | null;
             /** Overall Score */
             overall_score: number | null;
             /** Feedback Summary */

@@ -35,6 +35,7 @@ def create_practice_session(
             user_concerns=body.user_concerns,
             session_brief=body.session_brief,
             target_context=body.target_context,
+            topic_id=body.topic_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

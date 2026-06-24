@@ -32,12 +32,6 @@ def build_topic_extract_prompt(
 # 現在のトピックグラフ（既存 label を再利用すること）
 {graph_context}
 
-# 直前の質問
-{question or "(なし)"}
-
-# ユーザーの回答
-{answer}
-
 以下の JSON 形式で出力してください：
 {{
   "nodes": [
@@ -53,4 +47,14 @@ def build_topic_extract_prompt(
 - 抽出すべき情報が無ければ nodes/edges を空配列にする
 """
 
-    return [LLMMessage(role="system", content=system_prompt)]
+    user_prompt = f"""直前の質問: {question or "(なし)"}
+
+ユーザーの回答:
+{answer}
+
+この回答からトピックグラフの差分を抽出し、JSON で返してください。"""
+
+    return [
+        LLMMessage(role="system", content=system_prompt),
+        LLMMessage(role="user", content=user_prompt),
+    ]

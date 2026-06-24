@@ -8,6 +8,13 @@ import { z } from "zod";
 import { Button, Input, Textarea, Card, Spinner } from "@/components/ui";
 import { useAiCharacters } from "../hooks/useAiCharacters";
 import { useCreateSession } from "../hooks/useCreateSession";
+import { useTopics } from "../hooks/useTopics";
+import { useCreateTopic } from "../hooks/useCreateTopic";
+import {
+  classifyTopicSelection,
+  TOPIC_NEW,
+  TOPIC_NONE,
+} from "../lib/topicSelection";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 
 const sessionModes = [
@@ -27,6 +34,9 @@ const sessionSchema = z.object({
   userGoal: z.string().optional(),
   userConcerns: z.string().optional(),
   feedbackEnabled: z.boolean(),
+  // "" = トピックなし / 数値文字列 = 既存トピック / "new" = 新規作成
+  topicSelection: z.string().optional(),
+  newTopicTitle: z.string().optional(),
 });
 
 type SessionFormValues = z.infer<typeof sessionSchema>;
@@ -37,7 +47,9 @@ export function SessionSetupForm() {
 
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const { data: characters, isLoading: charactersLoading } = useAiCharacters();
+  const { data: topics } = useTopics(user?.id);
   const createSession = useCreateSession();
+  const createTopic = useCreateTopic();
 
   const {
     register,
@@ -51,11 +63,13 @@ export function SessionSetupForm() {
       mode: "interview",
       participantCount: 1,
       feedbackEnabled: true,
+      topicSelection: TOPIC_NONE,
     },
   });
 
   const selectedMode = watch("mode");
   const selectedParticipantCount = watch("participantCount");
+  const selectedTopic = watch("topicSelection");
 
   const onSubmit = async (values: SessionFormValues) => {
     if (!user) {
@@ -66,6 +80,26 @@ export function SessionSetupForm() {
     setError(null);
 
     try {
+      // トピックの解決: 既存選択 / 新規作成 / なし
+      const choice = classifyTopicSelection(
+        values.topicSelection,
+        values.newTopicTitle,
+      );
+      if (choice.kind === "error") {
+        setError(choice.message);
+        return;
+      }
+      let topicId: number | null = null;
+      if (choice.kind === "new") {
+        const topic = await createTopic.mutateAsync({
+          user_id: user.id,
+          title: choice.title,
+        });
+        topicId = topic.id;
+      } else if (choice.kind === "existing") {
+        topicId = choice.id;
+      }
+
       const session = await createSession.mutateAsync({
         user_id: user.id,
         mode: values.mode,
@@ -74,6 +108,7 @@ export function SessionSetupForm() {
         theme: values.theme || null,
         user_goal: values.userGoal || null,
         user_concerns: values.userConcerns || null,
+        topic_id: topicId,
       });
 
       router.push(`/sessions/${session.id}`);
@@ -105,6 +140,42 @@ export function SessionSetupForm() {
           {error}
         </div>
       )}
+
+      <Card>
+        <div className="p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              練習トピック（任意）
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              トピックを選ぶと、AIが過去に話した内容を覚えていて、弱い点や矛盾を深掘りします。
+            </p>
+          </div>
+
+          <select
+            {...register("topicSelection")}
+            className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-600 focus:ring-indigo-600"
+          >
+            <option value={TOPIC_NONE}>（トピックなし）</option>
+            {topics?.map((t) => (
+              <option key={t.id} value={String(t.id)}>
+                {t.title}
+                {t.completeness_score != null
+                  ? `（完成度 ${t.completeness_score}%）`
+                  : ""}
+              </option>
+            ))}
+            <option value={TOPIC_NEW}>＋ 新しいトピックを作成</option>
+          </select>
+
+          {selectedTopic === TOPIC_NEW && (
+            <Input
+              placeholder="新しいトピック名（例：研究内容、自己PR）"
+              {...register("newTopicTitle")}
+            />
+          )}
+        </div>
+      </Card>
 
       <Card>
         <div className="p-6">
@@ -290,7 +361,10 @@ export function SessionSetupForm() {
         >
           キャンセル
         </Button>
-        <Button type="submit" loading={createSession.isPending}>
+        <Button
+          type="submit"
+          loading={createSession.isPending || createTopic.isPending}
+        >
           練習を開始
         </Button>
       </div>
