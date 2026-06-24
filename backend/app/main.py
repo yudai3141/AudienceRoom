@@ -12,6 +12,7 @@ from app.api.routes.practice_sessions import router as practice_sessions_router
 from app.api.routes.session_feedback import router as session_feedback_router
 from app.api.routes.session_messages import router as session_messages_router
 from app.api.routes.session_participants import router as session_participants_router
+from app.api.routes.topics import router as topics_router
 from app.api.routes.users import router as users_router
 
 app = FastAPI(title="AudienceRoom API")
@@ -39,3 +40,4 @@ app.include_router(session_messages_router)
 app.include_router(session_feedback_router)
 app.include_router(feedback_metrics_router)
 app.include_router(conversation_router)
+app.include_router(topics_router)

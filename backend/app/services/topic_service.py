@@ -3,11 +3,15 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.db.models.topic import TOPIC_STATUSES, Topic
+from app.db.models.topic_edge import TopicEdge
+from app.db.models.topic_node import TopicNode
+from app.repositories.topic_edge_repository import TopicEdgeRepository
+from app.repositories.topic_node_repository import TopicNodeRepository
 from app.repositories.topic_repository import TopicRepository
 
 
 class TopicService:
-    """トピック (記憶層) の CRUD と概要更新を担う。LLM には依存しない。
+    """トピック (記憶層) の CRUD・概要更新・グラフ読み取りを担う。LLM には依存しない。
 
     グラフ (nodes/edges) の更新は仮想 GraphRAG 側のサービスが担当する。
     """
@@ -15,6 +19,8 @@ class TopicService:
     def __init__(self, db: Session) -> None:
         self._db = db
         self._repository = TopicRepository(db)
+        self._node_repo = TopicNodeRepository(db)
+        self._edge_repo = TopicEdgeRepository(db)
 
     def create_topic(
         self,
@@ -34,6 +40,12 @@ class TopicService:
 
     def list_user_topics(self, user_id: int) -> list[Topic]:
         return self._repository.list_by_user_id(user_id)
+
+    def list_nodes(self, topic_id: int) -> list[TopicNode]:
+        return self._node_repo.list_by_topic_id(topic_id)
+
+    def list_edges(self, topic_id: int) -> list[TopicEdge]:
+        return self._edge_repo.list_by_topic_id(topic_id)
 
     def update_topic(
         self,

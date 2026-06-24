@@ -511,6 +511,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Topics */
+        get: operations["list_topics_topics_get"];
+        put?: never;
+        /** Create Topic */
+        post: operations["create_topic_topics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Topic Detail */
+        get: operations["get_topic_detail_topics__topic_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Topic */
+        delete: operations["delete_topic_topics__topic_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Topic */
+        patch: operations["update_topic_topics__topic_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -977,6 +1014,108 @@ export interface components {
              */
             created_at: string;
             ai_character?: components["schemas"]["AiCharacterResponse"] | null;
+        };
+        /** TopicCreateRequest */
+        TopicCreateRequest: {
+            /** User Id */
+            user_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+        };
+        /** TopicDetailResponse */
+        TopicDetailResponse: {
+            /** Id */
+            id: number;
+            /** User Id */
+            user_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Status */
+            status: string;
+            /** Completeness Score */
+            completeness_score: number | null;
+            /** Current Summary */
+            current_summary: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Nodes */
+            nodes: components["schemas"]["TopicNodeResponse"][];
+            /** Edges */
+            edges: components["schemas"]["TopicEdgeResponse"][];
+        };
+        /** TopicEdgeResponse */
+        TopicEdgeResponse: {
+            /** Id */
+            id: number;
+            /** Source Node Id */
+            source_node_id: number;
+            /** Target Node Id */
+            target_node_id: number;
+            /** Relation Type */
+            relation_type: string;
+        };
+        /** TopicNodeResponse */
+        TopicNodeResponse: {
+            /** Id */
+            id: number;
+            /** Node Type */
+            node_type: string | null;
+            /** Label */
+            label: string;
+            /** Detail */
+            detail: string | null;
+            /** Coverage */
+            coverage: string;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** TopicResponse */
+        TopicResponse: {
+            /** Id */
+            id: number;
+            /** User Id */
+            user_id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Status */
+            status: string;
+            /** Completeness Score */
+            completeness_score: number | null;
+            /** Current Summary */
+            current_summary: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TopicUpdateRequest */
+        TopicUpdateRequest: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Status */
+            status?: string | null;
         };
         /** UserCreateRequest */
         UserCreateRequest: {
@@ -2028,6 +2167,165 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_topics_topics_get: {
+        parameters: {
+            query: {
+                user_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_topic_topics_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_topic_detail_topics__topic_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_topic_topics__topic_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_topic_topics__topic_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicResponse"];
                 };
             };
             /** @description Validation Error */
