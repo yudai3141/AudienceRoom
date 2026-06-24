@@ -640,6 +640,40 @@ http://localhost:8000/docs
 make generate-api
 ```
 
+### 12.6 テスト / DB データ衛生 ⚠️
+
+テストは **専用のテスト DB (`audienceroom_test`) に対してのみ** 実行する。
+`make test-backend` がこれを保証する（Docker 経由・`APP_ENV=test`・テスト DB を自動作成）。
+
+```bash
+make test-backend
+```
+
+**なぜ分けるのか（重要なルール）:**
+
+- テストの一部は DB のグローバル状態（有効キャラ数・件数など）に依存する。
+  dev DB (`audienceroom`) に **seed やデモデータをコミットすると、そのテストが壊れる**。
+- そのため **dev DB とテスト DB を分離する**。`conftest.py` のガードにより、
+  `*_test` DB / `APP_ENV=test` 以外に対しては**テスト実行を拒否**する。
+- このガードは **本番 DB に対してテストや seed を走らせる事故も防ぐ**
+  （本番 DB 名は `_test` で終わらない）。
+
+**やってはいけないこと:**
+
+- dev DB（アプリが使う `audienceroom`）に検証用の seed/デモデータをコミットしたまま放置する
+  → 別ターミナルでアプリを動かしながらのデモは OK だが、**確認後に必ず削除する**
+- 本番／共有環境の `DATABASE_URL` に対して `pytest` や seed スクリプトを実行する
+
+**dev DB を綺麗な状態に戻す:**
+
+```bash
+# 全データを破棄して作り直す（ローカルのみ）
+docker compose down -v && docker compose up -d db
+docker compose run --rm backend alembic upgrade head
+
+# 一部のデモデータだけ消す場合は psql で対象行を DELETE
+```
+
 ---
 
 ## 13. Project Structure
