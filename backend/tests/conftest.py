@@ -13,6 +13,31 @@ from app.core.config import settings
 from app.db.base import Base
 import app.db.models  # noqa: F401
 
+
+def _guard_test_database() -> None:
+    """テストを「テスト専用 DB」以外に向けて実行することを拒否する。
+
+    目的:
+    - dev DB (アプリと共有) を汚染しない。一部テストはグローバル状態に依存するため、
+      コミット済みの seed/デモデータがあると壊れる。
+    - 本番 DB に対してテストを走らせる事故を防ぐ。
+
+    許可条件: APP_ENV=test、または DATABASE_URL の DB 名が `_test` で終わる。
+    正しい実行方法は README『12.6 テスト / DB データ衛生』および `make test-backend`。
+    """
+    url = settings.DATABASE_URL
+    db_name = url.rsplit("/", 1)[-1].split("?")[0]
+    if not settings.is_testing and not db_name.endswith("_test"):
+        raise RuntimeError(
+            f"Refusing to run tests against non-test database '{db_name}'. "
+            "テストは専用のテスト DB に対してのみ実行できます。"
+            "`make test-backend` を使うか、APP_ENV=test と DATABASE_URL を "
+            "`*_test` DB に設定してください (README 12.6 参照)。"
+        )
+
+
+_guard_test_database()
+
 engine = create_engine(settings.DATABASE_URL, echo=False)
 
 

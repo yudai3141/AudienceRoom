@@ -19,5 +19,14 @@ ci-frontend:
 	cd frontend && npm run ci
 
 # Backend commands
+# 専用テスト DB (audienceroom_test) に対して Docker 経由で実行する。
+# dev DB (audienceroom) を汚染せず、本番 DB にも向かない。詳細は README 12.6。
+TEST_DB_URL = postgresql+psycopg://app:app@db:5432/audienceroom_test
+
 test-backend:
-	cd backend && pytest
+	docker compose up -d db
+	docker compose exec -T db sh -c "psql -U app -d audienceroom -tAc \"SELECT 1 FROM pg_database WHERE datname='audienceroom_test'\" | grep -q 1 || createdb -U app audienceroom_test"
+	docker compose run --rm \
+		-e APP_ENV=test \
+		-e DATABASE_URL=$(TEST_DB_URL) \
+		backend sh -c "pip install -q pytest pytest-asyncio && pytest"

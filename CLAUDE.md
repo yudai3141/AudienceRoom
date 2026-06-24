@@ -379,6 +379,13 @@ python -m scripts.export_openapi openapi.json
 - `tests/conftest.py` に共通フィクスチャを配置
 - プロジェクト全体で再利用可能にする
 
+**テスト DB の分離（重要・データ衛生）:**
+
+- テストは**専用テスト DB (`audienceroom_test`) に対してのみ**実行する。`make test-backend` を使う（Docker 経由・`APP_ENV=test`・テスト DB 自動作成）
+- `conftest.py` のガードにより、`*_test` DB / `APP_ENV=test` 以外への実行は**拒否**される（dev DB 汚染と本番 DB への誤実行を防ぐ）
+- 一部テストは DB のグローバル状態に依存するため、**dev DB に seed/デモデータをコミットしたまま放置しない**（確認後に必ず削除）
+- 本番／共有環境の `DATABASE_URL` に対して `pytest` や seed スクリプトを**実行しない**
+
 ### Frontend
 
 3種類のテストを書く:
