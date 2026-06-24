@@ -103,6 +103,16 @@ AudienceRoom は、以下のような課題を解決するためのアプリで�
 
 を組み合わせ、**本番に近い環境を再現**します。
 
+### 4.1 コアの進化: トピック記憶型の練習
+
+単に AI と会話できるだけでなく、**ユーザーが面接で話すトピック（エピソード）ごとに発話内容を蓄積・構造化し、AI 面接官がその情報をもとに深掘りする**ことをコア体験に据えます。
+
+- **トピック = 育てる単位**: 「研究内容」「自己PR」「志望動機」などを `topic` として永続化し、練習をまたいで情報が育つ。
+- **覚えていて、深掘りする**: 過去に話した内容をノード/エッジのグラフとして保持し（仮想 GraphRAG）、AI が弱点・矛盾を選んで質問する。
+- **客観的に見える化**: 練習後にトピック情報を更新し、できたこと / まだ弱いところ / 次の質問を分解して提示。「全部ダメだった」という過小評価から離れられるようにする。
+
+> 詳細: [`docs/concept/audienceroom_concept_ux_spec.md`](./docs/concept/audienceroom_concept_ux_spec.md)（要件）/ [`docs/concept/audienceroom_topic_ux_design.md`](./docs/concept/audienceroom_topic_ux_design.md)（UX 設計）/ [`backend/docs/db-schema-plan-b-topics.md`](./backend/docs/db-schema-plan-b-topics.md)（DB 設計）
+
 ---
 
 ## 5. UI Flow
@@ -400,10 +410,14 @@ audio = requests.post(
 
 ## 10. Database Design
 
-このアプリの中心は **「1回の練習 = 1セッション」** です。  
-そのため `practice_sessions` を中心にデータを設計します。
+このアプリのデータは 2 つの軸からなります。
+
+- **練習の軸（揮発的・1 回の練習で完結）**: `practice_sessions` を中心に設計します（「1回の練習 = 1セッション」）。
+- **記憶の軸（永続的・練習をまたいで育つ / Plan B 拡張）**: `topics` を中心に、トピックの構造をグラフ的に保持します。
 
 ### 10.1 Main Tables
+
+**練習の軸:**
 - `users`
 - `practice_sessions`
 - `ai_characters`
@@ -411,6 +425,14 @@ audio = requests.post(
 - `session_messages`
 - `session_feedback`
 - `feedback_metrics`
+
+**記憶の軸（Plan B: トピック記憶層）:**
+- `topics` — 面接で話すエピソードを育てる永続単位
+- `topic_nodes` / `topic_edges` — トピック内の論点・関係・矛盾をグラフ的に保持
+- `user_persona_facts` — ユーザ横断のペルソナ情報
+- `practice_sessions.topic_id` — セッションと練習対象トピックの紐付け
+
+> 記憶層の詳細なスキーマは [`backend/docs/db-schema-plan-b-topics.md`](./backend/docs/db-schema-plan-b-topics.md) を正本とします（以下 10.2〜 は練習の軸の現行テーブル）。
 
 ### 10.2 users
 
@@ -785,10 +807,15 @@ AudienceRoom/
 - [x] `GeminiProvider` を `Client` ベースの新 API に書き換え
 - [x] FutureWarning と 403 アクセス拒否リスクを解消
 
-#### Phase 10-4: ユーザー知識グラフ 🔜
-- [ ] ユーザーの過去セッションから関心領域・弱点を抽出
-- [ ] 知識グラフ（テーマ・スキル・改善点の関連）を構築
-- [ ] AI のプロンプトに反映してパーソナライズ
+#### Phase 10-4: トピック記憶 + 仮想 GraphRAG（Plan B）🔜
+あがり症ユーザー向けに「トピックを育てる」体験へ再設計する。設計の正本は
+[`backend/docs/db-schema-plan-b-topics.md`](./backend/docs/db-schema-plan-b-topics.md) /
+[`docs/concept/audienceroom_topic_ux_design.md`](./docs/concept/audienceroom_topic_ux_design.md) /
+[`backend/docs/db-schema-plan-b-implementation.md`](./backend/docs/db-schema-plan-b-implementation.md)。
+
+- [ ] **B-1**: `topics` / `topic_nodes` / `topic_edges` + `practice_sessions.topic_id`、仮想 GraphRAG ループ（弱点・矛盾ノードを選んで深掘り → 回答でグラフ更新）
+- [ ] **B-2**: トピックダッシュボード（完成度 / 弱点数 / 次の質問）+ 木/グラフ可視化、練習後のトピック更新
+- [ ] **B-3**: `user_persona_facts` を質問生成に活用
 
 ### Phase 11: さらにスケールが必要になったら（Phase 2 設計）
 - [ ] SSE ゲートウェイ + Cloud Pub/Sub による接続層分離
