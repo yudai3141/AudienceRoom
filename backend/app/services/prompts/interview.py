@@ -8,6 +8,7 @@ def build_interview_prompt(
     strictness: str,
     character_name: str,
     conversation_history: list[dict],
+    topic_context: str | None = None,
 ) -> list[LLMMessage]:
     """Build prompt for interview mode conversation.
 
@@ -50,10 +51,12 @@ def build_interview_prompt(
 
     context = "\n".join(context_parts) if context_parts else "一般的な面接練習"
 
+    memory_block = f"\n\n{topic_context}\n" if topic_context else ""
+
     system_prompt = f"""あなたは「{character_name}」という名前の面接官です。
 
 【設定】
-{context}
+{context}{memory_block}
 
 【あなたの振る舞い】
 {strictness_instruction}

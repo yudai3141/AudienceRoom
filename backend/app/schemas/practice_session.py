@@ -20,6 +20,7 @@ class PracticeSessionCreateRequest(BaseModel):
     user_concerns: str | None = None
     session_brief: str | None = None
     target_context: str | None = None
+    topic_id: int | None = None
 
 
 class PracticeSessionStatusUpdateRequest(BaseModel):
@@ -40,6 +41,7 @@ class PracticeSessionResponse(BaseModel):
     user_concerns: str | None
     session_brief: str | None
     target_context: str | None
+    topic_id: int | None
     overall_score: int | None
     feedback_summary: str | None
     started_at: datetime | None

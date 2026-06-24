@@ -50,6 +50,7 @@ class PracticeSessionService:
         user_concerns: str | None = None,
         session_brief: str | None = None,
         target_context: str | None = None,
+        topic_id: int | None = None,
     ) -> PracticeSession:
         if mode not in SESSION_MODES:
             raise ValueError(f"Invalid mode '{mode}'. Must be one of {SESSION_MODES}")
@@ -66,6 +67,7 @@ class PracticeSessionService:
             user_concerns=user_concerns,
             session_brief=session_brief,
             target_context=target_context,
+            topic_id=topic_id,
         )
         session = self._repository.create(session)
 

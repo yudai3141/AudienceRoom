@@ -12,6 +12,7 @@ from app.repositories.practice_session_repository import PracticeSessionReposito
 from app.repositories.session_message_repository import SessionMessageRepository
 from app.repositories.session_participant_repository import SessionParticipantRepository
 from app.services.ai.llm import get_llm_provider
+from app.services.ai.topic_context_loader import load_topic_memory_context
 from app.services.ai.tts_service import VOICEVOX_SPEAKERS, TTSService
 from app.services.prompts.interview import build_interview_prompt
 from app.services.prompts.presentation import build_presentation_prompt
@@ -414,6 +415,8 @@ class StreamingConversationService:
             strictness = participant.ai_character.strictness or "normal"
             character_name = participant.display_name or participant.ai_character.name
 
+        topic_context = load_topic_memory_context(self._db, session.topic_id)
+
         if session.mode == "interview":
             return build_interview_prompt(
                 theme=session.theme,
@@ -422,6 +425,7 @@ class StreamingConversationService:
                 strictness=strictness,
                 character_name=character_name,
                 conversation_history=conversation_history,
+                topic_context=topic_context,
             )
         elif session.mode == "presentation":
             is_qa_phase = len(conversation_history) > 4
@@ -433,6 +437,7 @@ class StreamingConversationService:
                 character_name=character_name,
                 conversation_history=conversation_history,
                 is_qa_phase=is_qa_phase,
+                topic_context=topic_context,
             )
         else:
             # デフォルトは面接モード
@@ -443,6 +448,7 @@ class StreamingConversationService:
                 strictness=strictness,
                 character_name=character_name,
                 conversation_history=conversation_history,
+                topic_context=topic_context,
             )
 
     def _pick_random_participant(self, participants):
