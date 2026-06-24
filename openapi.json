@@ -572,6 +572,49 @@
         }
       }
     },
+    "/practice-sessions/{session_id}/update-topic": {
+      "post": {
+        "tags": [
+          "practice-sessions"
+        ],
+        "summary": "Update Topic From Session",
+        "description": "練習後に、会話全体からトピックグラフ・完成度・要約をまとめて更新する。\n\nセッションが topic に紐づかない場合は skipped=true で何もしない。",
+        "operationId": "update_topic_from_session_practice_sessions__session_id__update_topic_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicUpdateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/session-participants": {
       "post": {
         "tags": [
@@ -1764,6 +1807,36 @@
           "session_id"
         ],
         "title": "ConversationStartRequest"
+      },
+      "CoverageChangeResponse": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "after": {
+            "type": "string",
+            "title": "After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "before",
+          "after"
+        ],
+        "title": "CoverageChangeResponse"
       },
       "DashboardResponse": {
         "properties": {
@@ -3320,6 +3393,97 @@
         },
         "type": "object",
         "title": "TopicUpdateRequest"
+      },
+      "TopicUpdateResponse": {
+        "properties": {
+          "skipped": {
+            "type": "boolean",
+            "title": "Skipped"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "created_node_labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Created Node Labels"
+          },
+          "updated_node_labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Updated Node Labels"
+          },
+          "created_edge_count": {
+            "type": "integer",
+            "title": "Created Edge Count"
+          },
+          "coverage_changes": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageChangeResponse"
+            },
+            "type": "array",
+            "title": "Coverage Changes"
+          },
+          "completeness_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness Before"
+          },
+          "completeness_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness After"
+          },
+          "current_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skipped",
+          "topic_id",
+          "created_node_labels",
+          "updated_node_labels",
+          "created_edge_count",
+          "coverage_changes",
+          "completeness_before",
+          "completeness_after",
+          "current_summary"
+        ],
+        "title": "TopicUpdateResponse",
+        "description": "練習後のトピック更新結果（差分）。"
       },
       "UserCreateRequest": {
         "properties": {

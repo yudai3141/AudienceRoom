@@ -52,3 +52,23 @@ class TopicResponse(BaseModel):
 class TopicDetailResponse(TopicResponse):
     nodes: list[TopicNodeResponse]
     edges: list[TopicEdgeResponse]
+
+
+class CoverageChangeResponse(BaseModel):
+    label: str
+    before: str | None
+    after: str
+
+
+class TopicUpdateResponse(BaseModel):
+    """練習後のトピック更新結果（差分）。"""
+
+    skipped: bool
+    topic_id: int | None
+    created_node_labels: list[str]
+    updated_node_labels: list[str]
+    created_edge_count: int
+    coverage_changes: list[CoverageChangeResponse]
+    completeness_before: int | None
+    completeness_after: int | None
+    current_summary: str | None
