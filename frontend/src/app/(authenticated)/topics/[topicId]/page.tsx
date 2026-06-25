@@ -7,16 +7,16 @@ import { Card, Spinner } from "@/components/ui";
 import { useTopicDetail } from "@/features/topics/hooks/useTopicDetail";
 import { TopicGraphView } from "@/features/topics/components/TopicGraphView";
 
-// React Flow はクライアント専用（SSR 無効）で読み込む。
-const TopicGraphFlow = dynamic(
+// react-force-graph はクライアント専用（SSR 無効）で読み込む。
+const TopicKnowledgeGraph = dynamic(
   () =>
-    import("@/features/topics/components/TopicGraphFlow").then(
-      (m) => m.TopicGraphFlow,
+    import("@/features/topics/components/TopicKnowledgeGraph").then(
+      (m) => m.TopicKnowledgeGraph,
     ),
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[420px] items-center justify-center">
+      <div className="flex h-[460px] items-center justify-center">
         <Spinner size="lg" />
       </div>
     ),
@@ -96,7 +96,7 @@ export default function TopicDetailPage({
       <Card>
         <div className="space-y-3 p-5">
           <h2 className="text-sm font-semibold text-slate-900">構造</h2>
-          <TopicGraphFlow nodes={topic.nodes} edges={topic.edges} />
+          <TopicKnowledgeGraph nodes={topic.nodes} edges={topic.edges} />
           <div className="flex flex-wrap gap-3 text-xs text-slate-500">
             <span>
               <span className="mr-1 inline-block h-2 w-2 rounded-full bg-green-500" />
