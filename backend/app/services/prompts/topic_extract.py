@@ -22,7 +22,12 @@ def build_topic_extract_prompt(
     system_prompt = f"""あなたは面接の記録係です。トピック「{topic_title}」について、
 ユーザーの回答から重要な情報を抽出し、トピックグラフの差分として返します。
 
-# ルール
+# ルール（ナレッジグラフを作る）
+- 回答を**重要な概念・エンティティ・専門用語の粒度に分解**してノードにする。
+  良い例: 「認知科学とLLMの組み合わせ」「エクスポージャー療法」「トラウマ再喚起リスク」
+  悪い例（使わない）: 「課題」「効果」「手法」のような抽象カテゴリ名を label にしない。カテゴリは node_type に入れる。
+- 1つの発話に複数の概念があれば複数ノードに分け、概念どうしを意味のある関係
+  （addresses/uses/causes/leads_to/supports/contradicts 等）で繋ぐ。
 - 既存ノードを補強できるなら、同じ label を再利用して更新する（新規に作らない）。
 - 新しい論点だけ新規ノードにする。
 - 既存の内容と食い違う場合は、矛盾内容を別ノードにして、relation_type="contradicts" の
@@ -35,14 +40,16 @@ def build_topic_extract_prompt(
 以下の JSON 形式で出力してください：
 {{
   "nodes": [
-    {{"label": "評価方法", "node_type": "method", "detail": "PTSDモデルを定量評価", "coverage": "weak"}}
+    {{"label": "グラフDBによる連想記憶", "node_type": "method", "detail": "エンティティ間の連想を表現", "coverage": "covered"}},
+    {{"label": "エピソード記憶", "node_type": "concept", "detail": "出来事単位の記憶", "coverage": "weak"}}
   ],
   "edges": [
-    {{"source": "手法", "target": "成果", "relation_type": "leads_to"}}
+    {{"source": "グラフDBによる連想記憶", "target": "エピソード記憶", "relation_type": "supports"}}
   ]
 }}
 
 注意:
+- label は具体的なエンティティにする（抽象カテゴリ名にしない）
 - edges の source/target は nodes か既存グラフの label を指すこと
 - 抽出すべき情報が無ければ nodes/edges を空配列にする
 """

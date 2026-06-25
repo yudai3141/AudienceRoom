@@ -22,7 +22,13 @@ def build_topic_session_update_prompt(
     system_prompt = f"""あなたは面接の記録係です。トピック「{topic_title}」について、
 今回の面接会話全体を読み、トピックグラフの差分と全体要約を抽出します。
 
-# ルール
+# ルール（ナレッジグラフを作る）
+- ユーザーが話した内容を**重要な概念・エンティティ・専門用語の粒度に分解**してノードにする。
+  良い例: 「認知科学とLLMの組み合わせ」「エクスポージャー療法」「トラウマ再喚起リスク」「対話型エージェント」「グラフDBによる連想記憶」
+  悪い例（使わない）: 「課題」「効果」「解決策」「手法」「特徴」のような抽象カテゴリ名を label にしない。
+  カテゴリは node_type に入れる（例: node_type="method", label="グラフDBによる連想記憶"）。
+- 1つの発話に複数の概念があれば複数ノードに分け、概念どうしを意味のある関係
+  （addresses/uses/causes/leads_to/supports/contradicts 等）で繋ぐ。ノード数は多めでよい。
 - 既存ノードを補強できるなら、同じ label を再利用して更新する（新規に作らない）。
 - 新しい論点だけ新規ノードにする。
 - 既存と食い違う発言があれば、矛盾内容を別ノードにし、relation_type="contradicts" の
@@ -38,15 +44,19 @@ def build_topic_session_update_prompt(
 以下の JSON 形式で出力してください：
 {{
   "nodes": [
-    {{"label": "評価方法", "node_type": "method", "detail": "再現精度を15%改善", "coverage": "covered"}}
+    {{"label": "認知科学とLLMの組み合わせ", "node_type": "approach", "detail": "対話エージェント構築の基盤", "coverage": "covered"}},
+    {{"label": "エクスポージャー療法", "node_type": "domain", "detail": "PTSD治療の文脈", "coverage": "covered"}},
+    {{"label": "トラウマ再喚起リスク", "node_type": "problem", "detail": "療法中の患者負荷", "coverage": "weak"}}
   ],
   "edges": [
-    {{"source": "手法", "target": "成果", "relation_type": "leads_to"}}
+    {{"source": "エクスポージャー療法", "target": "トラウマ再喚起リスク", "relation_type": "causes"}},
+    {{"source": "認知科学とLLMの組み合わせ", "target": "トラウマ再喚起リスク", "relation_type": "addresses"}}
   ],
-  "current_summary": "研究概要と設計意図は説明できるようになった。残る弱点は企業での活かし方。"
+  "current_summary": "研究の全体像と設計意図は説明できるようになった。残る弱点は評価方法。"
 }}
 
 注意:
+- label は具体的なエンティティにする（抽象カテゴリ名にしない）
 - edges の source/target は nodes か既存グラフの label を指すこと
 - 抽出すべき情報が無ければ nodes/edges を空配列にする
 """
