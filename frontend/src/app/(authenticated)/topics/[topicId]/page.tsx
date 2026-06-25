@@ -2,9 +2,26 @@
 
 import { use } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Card, Spinner } from "@/components/ui";
 import { useTopicDetail } from "@/features/topics/hooks/useTopicDetail";
 import { TopicGraphView } from "@/features/topics/components/TopicGraphView";
+
+// React Flow はクライアント専用（SSR 無効）で読み込む。
+const TopicGraphFlow = dynamic(
+  () =>
+    import("@/features/topics/components/TopicGraphFlow").then(
+      (m) => m.TopicGraphFlow,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[420px] items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    ),
+  },
+);
 
 const WEAK_COVERAGES = ["weak", "gap"];
 
@@ -73,6 +90,28 @@ export default function TopicDetailPage({
           <p className="text-xs text-slate-500">
             まだ弱い論点: {weakCount}個
           </p>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-3 p-5">
+          <h2 className="text-sm font-semibold text-slate-900">構造</h2>
+          <TopicGraphFlow nodes={topic.nodes} edges={topic.edges} />
+          <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+            <span>
+              <span className="mr-1 inline-block h-2 w-2 rounded-full bg-green-500" />
+              話せる
+            </span>
+            <span>
+              <span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />
+              弱い
+            </span>
+            <span>
+              <span className="mr-1 inline-block h-2 w-2 rounded-full bg-slate-400" />
+              未説明
+            </span>
+            <span className="text-red-500">⚡ 赤い線 = 矛盾</span>
+          </div>
         </div>
       </Card>
 
