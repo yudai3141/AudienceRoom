@@ -7,6 +7,7 @@ import { Button } from "@/components/ui";
 
 const navItems = [
   { href: "/dashboard", label: "ダッシュボード" },
+  { href: "/topics", label: "トピック" },
   { href: "/sessions", label: "練習履歴" },
 ];
 

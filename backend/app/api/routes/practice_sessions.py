@@ -10,7 +10,9 @@ from app.schemas.practice_session import (
     PracticeSessionResponse,
     PracticeSessionStatusUpdateRequest,
 )
+from app.schemas.topic import TopicUpdateResponse
 from app.services.ai.feedback_generator import FeedbackGenerator
+from app.services.ai.topic_memory_updater import TopicMemoryUpdater
 from app.services.practice_session_service import PracticeSessionService
 
 router = APIRouter(prefix="/practice-sessions", tags=["practice-sessions"])
@@ -120,4 +122,35 @@ async def generate_feedback(
         overall_score=result.overall_score,
         summary_title=result.feedback.summary_title,
         short_comment=result.feedback.short_comment,
+    )
+
+
+@router.post(
+    "/{session_id}/update-topic",
+    response_model=TopicUpdateResponse,
+)
+async def update_topic_from_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> TopicUpdateResponse:
+    """練習後に、会話全体からトピックグラフ・完成度・要約をまとめて更新する。
+
+    セッションが topic に紐づかない場合は skipped=true で何もしない。
+    """
+    updater = TopicMemoryUpdater(db)
+    try:
+        result = await updater.update_from_session(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return TopicUpdateResponse(
+        skipped=result.skipped,
+        topic_id=result.topic_id,
+        created_node_labels=[n.label for n in result.created_nodes],
+        updated_node_labels=[n.label for n in result.updated_nodes],
+        created_edge_count=len(result.created_edges),
+        coverage_changes=result.coverage_changes,
+        completeness_before=result.completeness_before,
+        completeness_after=result.completeness_after,
+        current_summary=result.current_summary,
     )

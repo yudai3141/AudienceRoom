@@ -233,6 +233,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/practice-sessions/{session_id}/update-topic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Topic From Session
+         * @description 練習後に、会話全体からトピックグラフ・完成度・要約をまとめて更新する。
+         *
+         *     セッションが topic に紐づかない場合は skipped=true で何もしない。
+         */
+        post: operations["update_topic_from_session_practice_sessions__session_id__update_topic_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session-participants": {
         parameters: {
             query?: never;
@@ -622,6 +644,15 @@ export interface components {
              * @default true
              */
             generate_audio: boolean;
+        };
+        /** CoverageChangeResponse */
+        CoverageChangeResponse: {
+            /** Label */
+            label: string;
+            /** Before */
+            before: string | null;
+            /** After */
+            after: string;
         };
         /** DashboardResponse */
         DashboardResponse: {
@@ -1121,6 +1152,30 @@ export interface components {
             /** Status */
             status?: string | null;
         };
+        /**
+         * TopicUpdateResponse
+         * @description 練習後のトピック更新結果（差分）。
+         */
+        TopicUpdateResponse: {
+            /** Skipped */
+            skipped: boolean;
+            /** Topic Id */
+            topic_id: number | null;
+            /** Created Node Labels */
+            created_node_labels: string[];
+            /** Updated Node Labels */
+            updated_node_labels: string[];
+            /** Created Edge Count */
+            created_edge_count: number;
+            /** Coverage Changes */
+            coverage_changes: components["schemas"]["CoverageChangeResponse"][];
+            /** Completeness Before */
+            completeness_before: number | null;
+            /** Completeness After */
+            completeness_after: number | null;
+            /** Current Summary */
+            current_summary: string | null;
+        };
         /** UserCreateRequest */
         UserCreateRequest: {
             /** Firebase Uid */
@@ -1593,6 +1648,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedbackGenerationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_topic_from_session_practice_sessions__session_id__update_topic_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicUpdateResponse"];
                 };
             };
             /** @description Validation Error */
