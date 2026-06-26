@@ -1,0 +1,15 @@
+# 秘密情報（生成した実値）
+**/.env
+
+# Python / ML の生成物
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# fine-tuning の出力（モデル・チェックポイント・データ）
+finetuning/data/
+finetuning/outputs/
+*.safetensors
+*.bin
+*.gguf
