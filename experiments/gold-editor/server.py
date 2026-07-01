@@ -16,6 +16,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -50,6 +51,7 @@ GOLD_PATH = BASE / "gold" / "gold.jsonl"
 INDEX_HTML = BASE / "static" / "index.html"
 
 app = FastAPI(title="Gold Editor")
+app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
 
 def _speaker(m) -> str:

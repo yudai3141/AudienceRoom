@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <title>Gold Editor</title>
-<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="/static/cytoscape.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, sans-serif; color: #0f172a; }
@@ -139,9 +139,9 @@ function initCy() {
     container: document.getElementById("cy"),
     style: [
       { selector: "node", style: {
-        "label": "data(label)", "background-color": ele => covColor[ele.data("coverage")] || "#94a3b8",
+        "label": "data(label)", "background-color": "data(color)",
         "color": "#0f172a", "font-size": "11px", "text-wrap": "wrap", "text-max-width": "120px",
-        "text-valign": "bottom", "text-margin-y": 4, "width": 26, "height": 26,
+        "text-valign": "bottom", "text-margin-y": 4, "width": 28, "height": 28,
       }},
       { selector: "node:selected", style: { "border-width": 3, "border-color": "#4f46e5" }},
       { selector: "edge", style: {
@@ -165,9 +165,10 @@ function renderGraph(graph) {
   (graph.nodes || []).forEach(n => {
     const id = "n" + (idc++);
     labelToId[n.label] = id;
+    const coverage = n.coverage || "weak";
     cy.add({ group: "nodes", data: {
       id, label: n.label || "(空)", node_type: n.node_type || "concept",
-      coverage: n.coverage || "weak", detail: n.detail || "",
+      coverage, color: covColor[coverage] || "#94a3b8", detail: n.detail || "",
     }});
   });
   (graph.edges || []).forEach(e => {
@@ -178,6 +179,7 @@ function renderGraph(graph) {
     }});
   });
   cy.layout({ name: "cose", animate: false }).run();
+  cy.fit(undefined, 40);
 }
 
 async function draft() {
@@ -197,7 +199,7 @@ async function draft() {
 function addNode() {
   const id = "n" + (idc++);
   const c = cy.extent();
-  cy.add({ group: "nodes", data: { id, label: "新しい概念", node_type: "concept", coverage: "weak", detail: "" },
+  cy.add({ group: "nodes", data: { id, label: "新しい概念", node_type: "concept", coverage: "weak", color: covColor.weak, detail: "" },
     position: { x: (c.x1 + c.x2) / 2, y: (c.y1 + c.y2) / 2 } });
   onTapNode(cy.$("#" + id));
 }
@@ -237,9 +239,11 @@ function showNodeEditor(node) {
 
 function applyNode(id) {
   const n = cy.$("#" + id);
+  const cov = document.getElementById("f_cov").value;
   n.data("label", document.getElementById("f_label").value);
   n.data("node_type", document.getElementById("f_type").value);
-  n.data("coverage", document.getElementById("f_cov").value);
+  n.data("coverage", cov);
+  n.data("color", covColor[cov] || "#94a3b8");
   n.data("detail", document.getElementById("f_detail").value);
   setStatus("ノード更新");
 }
