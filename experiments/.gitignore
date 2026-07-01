@@ -10,6 +10,9 @@ venv/
 # fine-tuning の出力（モデル・チェックポイント・データ）
 finetuning/data/
 finetuning/outputs/
+
+# gold（会話を含むためコミットしない）
+gold-editor/gold/
 *.safetensors
 *.bin
 *.gguf
