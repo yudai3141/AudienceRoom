@@ -120,4 +120,6 @@ Claude 検証はこの定義書に準拠し、人間の判定とズレた点は�
 - [ ] （その後）セルフホスト配信 + Langfuse で A/B
 
 ### ツール TODO
-- gold-editor に「pending（Claude 検証済み下書き）を読み込む」機能（人間検証を editor 上で完結させる）
+- [x] gold-editor に「pending（Claude 検証済み下書き）を読み込む」機能
+- [ ] 会話生成に**出来の悪い応募者バリエーション**を追加（詰まり・曖昧・未回答を多く含む会話で
+  weak/gap 多めの gold を作る。人間検証 pending-001 でのフィードバック: 現状は優秀すぎて coverage が単調）
