@@ -37,6 +37,7 @@
   <button onclick="addNode()">＋ノード</button>
   <button id="edgeBtn" onclick="toggleEdge()">エッジ追加: OFF</button>
   <button onclick="save()">💾 gold保存</button>
+  <button onclick="testRender()">🔧テスト描画</button>
   <span id="status"></span>
 </div>
 <div id="main">
@@ -45,9 +46,6 @@
     <select id="genTopic"></select>
     <select id="genPersona" style="margin-top:4px;"></select>
     <button class="primary" style="width:100%;margin-top:6px;" onclick="genConv()">会話を生成</button>
-    <details style="margin-top:8px;"><summary style="font-size:12px;cursor:pointer;color:#64748b;">DBの会話から選ぶ（話者ラベルが壊れている場合あり）</summary>
-      <div id="convList" style="margin-top:6px;"></div>
-    </details>
     <hr/>
     <div id="transcript"></div>
   </div>
@@ -64,6 +62,31 @@
 </div>
 
 <script>
+window.onerror = function (msg, src, line, col) {
+  const s = document.getElementById("status");
+  if (s) s.textContent = "JSエラー: " + msg + " (" + line + ":" + col + ")";
+  return false;
+};
+window.addEventListener("DOMContentLoaded", () => {
+  const s = document.getElementById("status");
+  if (typeof cytoscape === "undefined" && s) s.textContent = "Cytoscape が読み込めていません（/static/cytoscape.min.js）";
+});
+
+function testRender() {
+  renderGraph({
+    nodes: [
+      { label: "実行力", node_type: "concept", coverage: "covered" },
+      { label: "評価方法", node_type: "method", coverage: "weak" },
+      { label: "企業との接続", node_type: "goal", coverage: "gap" },
+    ],
+    edges: [
+      { source: "実行力", target: "評価方法", relation_type: "uses" },
+      { source: "評価方法", target: "企業との接続", relation_type: "leads_to" },
+    ],
+  });
+  setStatus("テスト描画: 3ノード（見えればCytoscapeはOK）");
+}
+
 let META = { node_types: [], relation_types: [] };
 let CONVS = [];
 let current = null;      // 選択中の会話
@@ -80,10 +103,8 @@ async function init() {
   META = await (await fetch("/api/meta")).json();
   document.getElementById("genTopic").innerHTML = (META.topics || []).map(t => `<option>${t}</option>`).join("");
   document.getElementById("genPersona").innerHTML = (META.personas || []).map(p => `<option>${p}</option>`).join("");
-  CONVS = await (await fetch("/api/conversations")).json();
-  renderConvList();
   initCy();
-  setStatus(`準備完了（DB会話 ${CONVS.length} 件）`);
+  setStatus("準備完了：topic/persona を選んで「会話を生成」→「Gemini下書き」");
 }
 
 async function genConv() {
@@ -178,22 +199,28 @@ function renderGraph(graph) {
       id: "e" + (idc++), source: s, target: t, relation_type: e.relation_type || "uses",
     }});
   });
+  cy.resize();
   cy.layout({ name: "cose", animate: false }).run();
   cy.fit(undefined, 40);
 }
 
 async function draft() {
-  if (!current) { alert("先に左で会話を選んでください"); return; }
-  setStatus("Gemini 抽出中…");
+  if (!current) { setStatus("① 会話が選ばれていません（左で生成 or 選択）"); return; }
+  setStatus("② Gemini 抽出中…（10〜20秒待つ）");
+  let graph;
   try {
     const res = await fetch("/api/draft", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topic: current.topic, turns: current.turns }),
     });
-    const graph = await res.json();
+    if (!res.ok) { setStatus("③ APIエラー HTTP " + res.status); return; }
+    graph = await res.json();
+  } catch (e) { setStatus("③ 通信失敗: " + e); return; }
+  setStatus("④ 応答受信 nodes=" + (graph.nodes || []).length + " → 描画中");
+  try {
     renderGraph(graph);
-    setStatus(`下書き: ノード${(graph.nodes||[]).length} / エッジ${(graph.edges||[]).length}`);
-  } catch (e) { setStatus("抽出失敗: " + e); }
+    setStatus("✅ 下書き: ノード" + (graph.nodes || []).length + " / エッジ" + (graph.edges || []).length);
+  } catch (e) { setStatus("⑤ 描画エラー: " + (e && e.message ? e.message : e)); }
 }
 
 function addNode() {

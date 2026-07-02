@@ -76,9 +76,12 @@ def _extraction_prompt(topic: str, conv_text: str) -> list[LLMMessage]:
     return [LLMMessage(role="system", content=system), LLMMessage(role="user", content=user)]
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    return INDEX_HTML.read_text(encoding="utf-8")
+@app.get("/")
+def index() -> HTMLResponse:
+    return HTMLResponse(
+        INDEX_HTML.read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/api/meta")
