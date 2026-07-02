@@ -48,6 +48,7 @@ PERSONAS = [
 
 BASE = Path("/experiments/gold-editor")
 GOLD_PATH = BASE / "gold" / "gold.jsonl"
+REVIEWED_PATH = Path("/experiments/finetuning/data/reviewed_train.jsonl")
 INDEX_HTML = BASE / "static" / "index.html"
 
 app = FastAPI(title="Gold Editor")
@@ -105,6 +106,19 @@ def _conversation_prompt(topic: str, persona: str, turns: int) -> list[LLMMessag
 {{"conversation": [{{"speaker": "interviewer", "text": "..."}}, {{"speaker": "applicant", "text": "..."}}]}}"""
     user = f"トピック「{topic}」、背景「{persona}」で模擬面接の会話を JSON で生成してください。"
     return [LLMMessage(role="system", content=system), LLMMessage(role="user", content=user)]
+
+
+@app.get("/api/reviewed")
+def reviewed() -> list[dict]:
+    """Claude 検証済み（人間検証待ち）のレコード一覧を返す。"""
+    if not REVIEWED_PATH.exists():
+        return []
+    out = []
+    for line in REVIEWED_PATH.open(encoding="utf-8"):
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
 
 
 class GenConvRequest(BaseModel):

@@ -46,6 +46,11 @@
     <select id="genTopic"></select>
     <select id="genPersona" style="margin-top:4px;"></select>
     <button class="primary" style="width:100%;margin-top:6px;" onclick="genConv()">会話を生成</button>
+    <div id="reviewedBox" style="display:none;margin-top:12px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px;">Claude検証済みを読み込む</div>
+      <select id="reviewedList"></select>
+      <button style="width:100%;margin-top:4px;" onclick="loadReviewed()">読み込み（人間検証へ）</button>
+    </div>
     <hr/>
     <div id="transcript"></div>
   </div>
@@ -104,7 +109,25 @@ async function init() {
   document.getElementById("genTopic").innerHTML = (META.topics || []).map(t => `<option>${t}</option>`).join("");
   document.getElementById("genPersona").innerHTML = (META.personas || []).map(p => `<option>${p}</option>`).join("");
   initCy();
+  try {
+    REVIEWED = await (await fetch("/api/reviewed")).json();
+    if (REVIEWED.length > 0) {
+      document.getElementById("reviewedBox").style.display = "block";
+      document.getElementById("reviewedList").innerHTML =
+        REVIEWED.map((r, i) => `<option value="${i}">${r.id} ${r.topic}（${r.persona}）</option>`).join("");
+    }
+  } catch (e) { /* reviewed が無ければ非表示のまま */ }
   setStatus("準備完了：topic/persona を選んで「会話を生成」→「Gemini下書き」");
+}
+
+let REVIEWED = [];
+function loadReviewed() {
+  const r = REVIEWED[Number(document.getElementById("reviewedList").value)];
+  if (!r) return;
+  current = { session_id: null, topic: r.topic, turns: r.conversation };
+  showTranscript();
+  renderGraph(r.graph);
+  setStatus(`Claude検証済み ${r.id} を読み込み。修正して「gold保存」で確定`);
 }
 
 async function genConv() {
