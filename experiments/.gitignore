@@ -1,0 +1,18 @@
+# 秘密情報（生成した実値）
+**/.env
+
+# Python / ML の生成物
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# fine-tuning の出力（モデル・チェックポイント・データ）
+finetuning/data/
+finetuning/outputs/
+
+# gold（会話を含むためコミットしない）
+gold-editor/gold/
+*.safetensors
+*.bin
+*.gguf

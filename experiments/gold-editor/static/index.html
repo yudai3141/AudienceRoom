@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>Gold Editor</title>
+<script src="/static/cytoscape.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; color: #0f172a; }
+  #top { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+  #top .title { font-weight: 700; margin-right: 8px; }
+  button { padding: 6px 10px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  button:hover { background: #f1f5f9; }
+  button.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+  button.active { background: #fde68a; border-color: #d97706; }
+  #status { margin-left: auto; font-size: 12px; color: #64748b; }
+  #main { display: flex; height: calc(100vh - 49px); }
+  #left { width: 300px; border-right: 1px solid #e2e8f0; overflow: auto; padding: 8px; }
+  #cy { flex: 1; background: #f1f5f9; }
+  #right { width: 280px; border-left: 1px solid #e2e8f0; padding: 10px; overflow: auto; }
+  .conv { padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 6px; cursor: pointer; font-size: 13px; }
+  .conv:hover { background: #f8fafc; }
+  .conv.sel { border-color: #4f46e5; background: #eef2ff; }
+  .turn { font-size: 12px; margin: 4px 0; }
+  .turn .who { font-weight: 600; color: #475569; }
+  label { display: block; font-size: 12px; color: #475569; margin-top: 8px; }
+  input, select, textarea { width: 100%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 13px; }
+  .hint { font-size: 12px; color: #64748b; padding: 6px; background: #f8fafc; border-radius: 6px; }
+  .legend { font-size: 11px; color: #64748b; margin-top: 10px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div id="top">
+  <span class="title">Gold Editor</span>
+  <button class="primary" onclick="draft()">Gemini下書き</button>
+  <button onclick="addNode()">＋ノード</button>
+  <button id="edgeBtn" onclick="toggleEdge()">エッジ追加: OFF</button>
+  <button onclick="save()">💾 gold保存</button>
+  <button onclick="testRender()">🔧テスト描画</button>
+  <span id="status"></span>
+</div>
+<div id="main">
+  <div id="left">
+    <div style="font-weight:600;font-size:13px;margin-bottom:6px;">会話を生成</div>
+    <select id="genTopic"></select>
+    <select id="genPersona" style="margin-top:4px;"></select>
+    <button class="primary" style="width:100%;margin-top:6px;" onclick="genConv()">会話を生成</button>
+    <div id="reviewedBox" style="display:none;margin-top:12px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px;">Claude検証済みを読み込む</div>
+      <select id="reviewedList"></select>
+      <button style="width:100%;margin-top:4px;" onclick="loadReviewed()">読み込み（人間検証へ）</button>
+    </div>
+    <hr/>
+    <div id="transcript"></div>
+  </div>
+  <div id="cy"></div>
+  <div id="right">
+    <div id="editor"><div class="hint">ノード/エッジを選ぶと、ここで編集できます。</div></div>
+    <div class="legend">
+      <div><span class="dot" style="background:#16a34a"></span>covered（話せた）</div>
+      <div><span class="dot" style="background:#d97706"></span>weak（弱い）</div>
+      <div><span class="dot" style="background:#94a3b8"></span>gap（未説明）</div>
+      <div style="margin-top:4px;">赤いエッジ = contradicts（矛盾）</div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.onerror = function (msg, src, line, col) {
+  const s = document.getElementById("status");
+  if (s) s.textContent = "JSエラー: " + msg + " (" + line + ":" + col + ")";
+  return false;
+};
+window.addEventListener("DOMContentLoaded", () => {
+  const s = document.getElementById("status");
+  if (typeof cytoscape === "undefined" && s) s.textContent = "Cytoscape が読み込めていません（/static/cytoscape.min.js）";
+});
+
+function testRender() {
+  renderGraph({
+    nodes: [
+      { label: "実行力", node_type: "concept", coverage: "covered" },
+      { label: "評価方法", node_type: "method", coverage: "weak" },
+      { label: "企業との接続", node_type: "goal", coverage: "gap" },
+    ],
+    edges: [
+      { source: "実行力", target: "評価方法", relation_type: "uses" },
+      { source: "評価方法", target: "企業との接続", relation_type: "leads_to" },
+    ],
+  });
+  setStatus("テスト描画: 3ノード（見えればCytoscapeはOK）");
+}
+
+let META = { node_types: [], relation_types: [] };
+let CONVS = [];
+let current = null;      // 選択中の会話
+let cy = null;
+let idc = 0;
+let edgeMode = false;
+let edgeSource = null;
+
+const covColor = { covered: "#16a34a", weak: "#d97706", gap: "#94a3b8" };
+
+function setStatus(s) { document.getElementById("status").textContent = s; }
+
+async function init() {
+  META = await (await fetch("/api/meta")).json();
+  document.getElementById("genTopic").innerHTML = (META.topics || []).map(t => `<option>${t}</option>`).join("");
+  document.getElementById("genPersona").innerHTML = (META.personas || []).map(p => `<option>${p}</option>`).join("");
+  initCy();
+  try {
+    REVIEWED = await (await fetch("/api/reviewed")).json();
+    if (REVIEWED.length > 0) {
+      document.getElementById("reviewedBox").style.display = "block";
+      document.getElementById("reviewedList").innerHTML =
+        REVIEWED.map((r, i) => `<option value="${i}">${r.id} ${r.topic}（${r.persona}）</option>`).join("");
+    }
+  } catch (e) { /* reviewed が無ければ非表示のまま */ }
+  setStatus("準備完了：topic/persona を選んで「会話を生成」→「Gemini下書き」");
+}
+
+let REVIEWED = [];
+function loadReviewed() {
+  const r = REVIEWED[Number(document.getElementById("reviewedList").value)];
+  if (!r) return;
+  current = { session_id: null, topic: r.topic, turns: r.conversation };
+  showTranscript();
+  renderGraph(r.graph);
+  setStatus(`Claude検証済み ${r.id} を読み込み。修正して「gold保存」で確定`);
+}
+
+async function genConv() {
+  const topic = document.getElementById("genTopic").value;
+  const persona = document.getElementById("genPersona").value;
+  setStatus("会話を生成中…");
+  try {
+    const res = await fetch("/api/generate-conversation", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, persona, turns: 5 }),
+    });
+    current = await res.json();
+    document.querySelectorAll(".conv").forEach(e => e.classList.remove("sel"));
+    showTranscript();
+    cy.elements().remove();
+    setStatus(`会話生成: ${current.topic}（${current.turns.length}発話）→ 次に「Gemini下書き」`);
+  } catch (e) { setStatus("生成失敗: " + e); }
+}
+
+function showTranscript() {
+  const t = document.getElementById("transcript");
+  t.innerHTML = "<div style='font-weight:600;font-size:13px;margin-bottom:4px;'>会話内容</div>";
+  current.turns.forEach(tr => {
+    const who = tr.speaker === "interviewer" ? "面接官" : "応募者";
+    t.innerHTML += `<div class="turn"><span class="who">${who}:</span> ${escapeHtml(tr.text)}</div>`;
+  });
+}
+
+function renderConvList() {
+  const el = document.getElementById("convList");
+  el.innerHTML = "";
+  CONVS.forEach((c, i) => {
+    const d = document.createElement("div");
+    d.className = "conv";
+    d.textContent = `#${c.session_id} ${c.topic}（${c.turns.length}発話）`;
+    d.onclick = () => selectConv(i);
+    d.id = "conv" + i;
+    el.appendChild(d);
+  });
+}
+
+function selectConv(i) {
+  current = CONVS[i];
+  document.querySelectorAll(".conv").forEach(e => e.classList.remove("sel"));
+  document.getElementById("conv" + i).classList.add("sel");
+  showTranscript();
+  cy.elements().remove();
+  setStatus(`#${current.session_id} を選択`);
+}
+
+function initCy() {
+  cy = cytoscape({
+    container: document.getElementById("cy"),
+    style: [
+      { selector: "node", style: {
+        "label": "data(label)", "background-color": "data(color)",
+        "color": "#0f172a", "font-size": "11px", "text-wrap": "wrap", "text-max-width": "120px",
+        "text-valign": "bottom", "text-margin-y": 4, "width": 28, "height": 28,
+      }},
+      { selector: "node:selected", style: { "border-width": 3, "border-color": "#4f46e5" }},
+      { selector: "edge", style: {
+        "label": "data(relation_type)", "font-size": "9px", "color": "#64748b",
+        "width": 1.5, "line-color": "#cbd5e1", "target-arrow-color": "#cbd5e1",
+        "target-arrow-shape": "triangle", "curve-style": "bezier",
+      }},
+      { selector: "edge[relation_type = 'contradicts']", style: { "line-color": "#dc2626", "target-arrow-color": "#dc2626", "color": "#dc2626" }},
+      { selector: "edge:selected", style: { "width": 3 }},
+    ],
+    layout: { name: "cose" },
+  });
+  cy.on("tap", "node", evt => onTapNode(evt.target));
+  cy.on("tap", "edge", evt => showEdgeEditor(evt.target));
+  cy.on("tap", evt => { if (evt.target === cy) clearEditor(); });
+}
+
+function renderGraph(graph) {
+  cy.elements().remove();
+  const labelToId = {};
+  (graph.nodes || []).forEach(n => {
+    const id = "n" + (idc++);
+    labelToId[n.label] = id;
+    const coverage = n.coverage || "weak";
+    cy.add({ group: "nodes", data: {
+      id, label: n.label || "(空)", node_type: n.node_type || "concept",
+      coverage, color: covColor[coverage] || "#94a3b8", detail: n.detail || "",
+    }});
+  });
+  (graph.edges || []).forEach(e => {
+    const s = labelToId[e.source], t = labelToId[e.target];
+    if (!s || !t) return;
+    cy.add({ group: "edges", data: {
+      id: "e" + (idc++), source: s, target: t, relation_type: e.relation_type || "uses",
+    }});
+  });
+  cy.resize();
+  cy.layout({ name: "cose", animate: false }).run();
+  cy.fit(undefined, 40);
+}
+
+async function draft() {
+  if (!current) { setStatus("① 会話が選ばれていません（左で生成 or 選択）"); return; }
+  setStatus("② Gemini 抽出中…（10〜20秒待つ）");
+  let graph;
+  try {
+    const res = await fetch("/api/draft", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: current.topic, turns: current.turns }),
+    });
+    if (!res.ok) { setStatus("③ APIエラー HTTP " + res.status); return; }
+    graph = await res.json();
+  } catch (e) { setStatus("③ 通信失敗: " + e); return; }
+  setStatus("④ 応答受信 nodes=" + (graph.nodes || []).length + " → 描画中");
+  try {
+    renderGraph(graph);
+    setStatus("✅ 下書き: ノード" + (graph.nodes || []).length + " / エッジ" + (graph.edges || []).length);
+  } catch (e) { setStatus("⑤ 描画エラー: " + (e && e.message ? e.message : e)); }
+}
+
+function addNode() {
+  const id = "n" + (idc++);
+  const c = cy.extent();
+  cy.add({ group: "nodes", data: { id, label: "新しい概念", node_type: "concept", coverage: "weak", color: covColor.weak, detail: "" },
+    position: { x: (c.x1 + c.x2) / 2, y: (c.y1 + c.y2) / 2 } });
+  onTapNode(cy.$("#" + id));
+}
+
+function toggleEdge() {
+  edgeMode = !edgeMode; edgeSource = null;
+  const b = document.getElementById("edgeBtn");
+  b.textContent = "エッジ追加: " + (edgeMode ? "ON（始点→終点をクリック）" : "OFF");
+  b.classList.toggle("active", edgeMode);
+}
+
+function onTapNode(node) {
+  if (edgeMode) {
+    if (!edgeSource) { edgeSource = node; setStatus("始点: " + node.data("label") + " → 終点をクリック"); return; }
+    if (edgeSource.id() !== node.id()) {
+      cy.add({ group: "edges", data: { id: "e" + (idc++), source: edgeSource.id(), target: node.id(), relation_type: "uses" } });
+    }
+    edgeSource = null; toggleEdge(); return;
+  }
+  showNodeEditor(node);
+}
+
+function showNodeEditor(node) {
+  const d = node.data();
+  const opt = (arr, v) => arr.map(x => `<option ${x === v ? "selected" : ""}>${x}</option>`).join("");
+  document.getElementById("editor").innerHTML = `
+    <div style="font-weight:600;font-size:13px;">ノード編集</div>
+    <label>label（概念名）</label><input id="f_label" value="${escapeAttr(d.label)}"/>
+    <label>node_type</label><select id="f_type">${opt(META.node_types, d.node_type)}</select>
+    <label>coverage</label><select id="f_cov">${opt(["covered","weak","gap"], d.coverage)}</select>
+    <label>detail（任意）</label><textarea id="f_detail" rows="2">${escapeHtml(d.detail || "")}</textarea>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="primary" onclick="applyNode('${node.id()}')">適用</button>
+      <button onclick="deleteEl('${node.id()}')">削除</button>
+    </div>`;
+}
+
+function applyNode(id) {
+  const n = cy.$("#" + id);
+  const cov = document.getElementById("f_cov").value;
+  n.data("label", document.getElementById("f_label").value);
+  n.data("node_type", document.getElementById("f_type").value);
+  n.data("coverage", cov);
+  n.data("color", covColor[cov] || "#94a3b8");
+  n.data("detail", document.getElementById("f_detail").value);
+  setStatus("ノード更新");
+}
+
+function showEdgeEditor(edge) {
+  const d = edge.data();
+  const opt = META.relation_types.map(x => `<option ${x === d.relation_type ? "selected" : ""}>${x}</option>`).join("");
+  const s = cy.$("#" + d.source).data("label"), t = cy.$("#" + d.target).data("label");
+  document.getElementById("editor").innerHTML = `
+    <div style="font-weight:600;font-size:13px;">エッジ編集</div>
+    <div class="hint">${escapeHtml(s)} → ${escapeHtml(t)}</div>
+    <label>relation_type</label><select id="f_rel">${opt}</select>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="primary" onclick="applyEdge('${edge.id()}')">適用</button>
+      <button onclick="deleteEl('${edge.id()}')">削除</button>
+    </div>`;
+}
+
+function applyEdge(id) {
+  cy.$("#" + id).data("relation_type", document.getElementById("f_rel").value);
+  setStatus("エッジ更新");
+}
+
+function deleteEl(id) { cy.$("#" + id).remove(); clearEditor(); }
+function clearEditor() { document.getElementById("editor").innerHTML = '<div class="hint">ノード/エッジを選ぶと編集できます。</div>'; }
+
+function collectGraph() {
+  const idToLabel = {};
+  const nodes = cy.nodes().map(n => {
+    const d = n.data(); idToLabel[d.id] = d.label;
+    return { label: d.label, node_type: d.node_type, coverage: d.coverage, detail: d.detail || "" };
+  });
+  const edges = cy.edges().map(e => ({
+    source: idToLabel[e.data("source")], target: idToLabel[e.data("target")], relation_type: e.data("relation_type"),
+  }));
+  return { nodes, edges };
+}
+
+async function save() {
+  if (!current) { alert("会話が選ばれていません"); return; }
+  if (cy.nodes().length === 0) { alert("グラフが空です"); return; }
+  const res = await fetch("/api/save", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: current.session_id, topic: current.topic, turns: current.turns, graph: collectGraph() }),
+  });
+  const r = await res.json();
+  setStatus(`保存しました（gold 合計 ${r.total_gold} 件）`);
+}
+
+function escapeHtml(s) { return (s || "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+function escapeAttr(s) { return (s || "").replace(/"/g, "&quot;"); }
+
+init();
+</script>
+</body>
+</html>
