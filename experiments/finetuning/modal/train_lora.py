@@ -17,19 +17,27 @@ import modal
 app = modal.App("audienceroom-lora-smoke")
 
 # バージョンは API 互換性のため固定（trl の API は版によって大きく変わる）
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "torch==2.5.1",
-    "transformers==4.46.3",
-    "trl==0.12.2",
-    "peft==0.13.2",
-    "datasets==3.1.0",
-    "accelerate==1.1.1",
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "torch==2.5.1",
+        "transformers==4.46.3",
+        "trl==0.12.2",
+        "peft==0.13.2",
+        "datasets==3.1.0",
+        "accelerate==1.1.1",
+    )
+    .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
 )
 
 vol = modal.Volume.from_name("audienceroom-lora", create_if_missing=True)
+hf_cache = modal.Volume.from_name("hf-cache", create_if_missing=True)
 
 
-@app.function(image=image, gpu="A10G", timeout=7200, volumes={"/out": vol})
+@app.function(
+    image=image, gpu="A10G", timeout=7200,
+    volumes={"/out": vol, "/root/.cache/huggingface": hf_cache},
+)
 def train(examples: list[dict], base_model: str, epochs: int, run_name: str) -> dict:
     import torch
     from datasets import Dataset
@@ -57,7 +65,9 @@ def train(examples: list[dict], base_model: str, epochs: int, run_name: str) -> 
         warmup_ratio=0.05,
         logging_steps=5,
         bf16=True,
-        max_seq_length=8192,
+        max_seq_length=6144,
+        gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         save_strategy="no",
         report_to=[],
     )
