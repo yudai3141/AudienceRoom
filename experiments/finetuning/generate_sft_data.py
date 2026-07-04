@@ -48,12 +48,21 @@ PERSONAS = [
 ]
 
 
-def build_conversation_prompt(topic: str, persona: str, turns: int) -> list[LLMMessage]:
-    system = f"""あなたは面接の脚本家です。リアルで深掘りのある模擬面接の会話を作ります。
+QUALITIES = [
+    "受け答えが具体的で流暢（数字・固有名詞が出る）",
+    "所々で詰まり、一部の質問には曖昧にしか答えられない",
+    "抽象的な回答が多く、深掘りされると答えに窮する箇所がある",
+]
+
+
+def build_conversation_prompt(topic: str, persona: str, turns: int, quality: str) -> list[LLMMessage]:
+    system = f"""あなたは面接の脚本家です。リアルな模擬面接の会話を作ります。
 - トピック: 「{topic}」
 - 応募者の背景: {persona}
-- 面接官は応募者の回答の弱い点・曖昧な点を {turns} 回ほど深掘りする。
-- 応募者は具体的な固有名詞・数字・経験を交えて答える（ただし所々で詰まる）。
+- 応募者のタイプ: {quality}
+- 面接官は弱い点・曖昧な点を {turns} 回ほど深掘りする。
+- **発話は短く**: 面接官は1〜2文、応募者は2〜4文。長広舌にしない。
+- 応募者のタイプに応じて、答えられない質問・曖昧なままの論点を残すこと。
 
 出力は次の JSON のみ：
 {{"conversation": [{{"speaker": "interviewer", "text": "..."}}, {{"speaker": "applicant", "text": "..."}}]}}"""
@@ -68,14 +77,21 @@ def build_extraction_messages(topic: str, conversation_text: str) -> tuple[str, 
     """型を固定した抽出プロンプト。teacher 呼び出しと SFT の入力の両方で使う。"""
     system = f"""あなたは面接の記録係です。会話からトピック「{topic}」の概念グラフを抽出します。
 
-# ルール
-- label は具体的な概念・エンティティ・専門用語（抽象カテゴリ名にしない）。
-- **重要な概念に絞り、ノードは 8〜15 個程度にする**（過剰に細分化しない）。
+# ルール（オントロジー v0.1）
+- **中心ノード（主題・プロジェクト）を必ず1つ立て、グラフのハブにする**。label は会話中の呼び方に忠実に。
+- **全ノードはハブから辿れるようにする**（孤立したノード・サブグラフを作らない）。
+- label は具体的な概念・エンティティ・専門用語（「課題」「効果」等の抽象カテゴリ名にしない）。
+- **重要な概念に絞り、ノードは 8〜15 個程度**（過剰に細分化しない）。
 - node_type は次の中から必ず1つ選ぶ: {", ".join(NODE_TYPES)}
 - relation_type は次の中から必ず1つ選ぶ: {", ".join(RELATION_TYPES)}
+- 関係の向き:
+  - 遂行中に生じた困難・対立: ハブ --causes--> problem
+  - 課題・インサイト → それを受けた行動・設計判断: problem --leads_to--> method/component（動機づけの向き）
+  - 行動・検証 → 成果: method --leads_to--> result、成果 → 学び/応用: result --leads_to--> result/goal
+  - 調査 → 発見: method --leads_to--> problem。役割・貢献の帰属: component --part_of--> ハブ/method
+  - addresses はハブレベルの対処のみ。同一ペアに両方向は張らない。矛盾は contradicts で保持
 - coverage は covered(十分話せた)/weak(説明が弱い/曖昧)/gap(触れたが未説明) から選ぶ。
-  **会話で詰まった・曖昧だった概念は weak、名前は出たが説明されていない概念は gap にする（全部 covered にしない）**。
-- 概念どうしを関係で繋ぎ、ナレッジグラフにする。
+  **会話で詰まった・曖昧だった概念は weak、名前は出たが説明されていない・答えられなかった概念は gap（全部 covered にしない）**。
 
 出力は次の JSON のみ：
 {{"nodes": [{{"label": "...", "node_type": "...", "detail": "...", "coverage": "..."}}],
@@ -90,10 +106,10 @@ def _conversation_to_text(conv: list[dict]) -> str:
     return "\n".join(f"{label.get(c.get('speaker'), c.get('speaker'))}: {c.get('text')}" for c in conv)
 
 
-async def generate_one(provider, topic: str, persona: str, turns: int) -> dict | None:
+async def generate_one(provider, topic: str, persona: str, turns: int, quality: str) -> dict | None:
     # 1) 会話生成
     conv_data = await provider.generate_json(
-        build_conversation_prompt(topic, persona, turns), temperature=0.9
+        build_conversation_prompt(topic, persona, turns, quality), temperature=0.9
     )
     conversation = conv_data.get("conversation", [])
     if not conversation:
@@ -122,7 +138,7 @@ async def generate_one(provider, topic: str, persona: str, turns: int) -> dict |
     }
 
 
-async def main(count: int, topics: list[str], fmt: str, out: Path) -> None:
+async def main(count: int, topics: list[str], fmt: str, out: Path, prefix: str) -> None:
     provider = get_llm_provider()
     out.parent.mkdir(parents=True, exist_ok=True)
     written = 0
@@ -130,9 +146,10 @@ async def main(count: int, topics: list[str], fmt: str, out: Path) -> None:
         for i in range(count):
             topic = topics[i % len(topics)]
             persona = random.choice(PERSONAS)
-            turns = random.randint(4, 7)
+            quality = QUALITIES[i % len(QUALITIES)]
+            turns = 3
             try:
-                ex = await generate_one(provider, topic, persona, turns)
+                ex = await generate_one(provider, topic, persona, turns, quality)
             except Exception as e:
                 print(f"  [{i + 1}/{count}] 失敗 {topic}: {e}")
                 continue
@@ -142,17 +159,18 @@ async def main(count: int, topics: list[str], fmt: str, out: Path) -> None:
             if fmt == "pending":
                 # Claude 検証待ちの素データ（会話 + Gemini 下書き）
                 record = {
-                    "id": f"pending-{i + 1:03d}",
+                    "id": f"{prefix}-{i + 1:03d}",
                     "topic": topic,
                     "persona": persona,
+                    "quality": quality,
                     "conversation": ex["conversation"],
                     "draft_graph": ex["graph"],
                 }
             else:
-                record = {"messages": ex["messages"], "meta": ex["meta"]}
+                record = {"messages": ex["messages"], "meta": ex["meta"] | {"quality": quality}}
             fout.write(json.dumps(record, ensure_ascii=False) + "\n")
             written += 1
-            print(f"  [{i + 1}/{count}] OK {topic} / {persona} (nodes={len(ex['graph'].get('nodes', []))})")
+            print(f"  [{i + 1}/{count}] OK {topic} / {persona} / {quality[:12]}… (発話={len(ex['conversation'])}, nodes={len(ex['graph'].get('nodes', []))})")
     print(f"完了: {written}/{count} 件を {out} に書き出し")
 
 
@@ -162,6 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("--topics", type=str, default="", help="カンマ区切りで対象トピックを限定")
     parser.add_argument("--format", dest="fmt", choices=["sft", "pending"], default="sft")
     parser.add_argument("--out", type=str, default=str(OUTPUT_PATH))
+    parser.add_argument("--prefix", type=str, default="pending", help="pending 形式の id プレフィックス")
     args = parser.parse_args()
     topic_list = [t.strip() for t in args.topics.split(",") if t.strip()] or TOPICS
-    asyncio.run(main(args.count, topic_list, args.fmt, Path(args.out)))
+    asyncio.run(main(args.count, topic_list, args.fmt, Path(args.out), args.prefix))
