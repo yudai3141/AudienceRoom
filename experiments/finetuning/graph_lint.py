@@ -46,6 +46,9 @@ def lint_graph(g: dict) -> list[str]:
             issues.append(f"語彙外 coverage: {n.get('label')} -> {n.get('coverage')}")
         if n.get("label", "").strip() in ABSTRACT_LABELS:
             issues.append(f"抽象カテゴリ label: 「{n.get('label')}」")
+        for ng in ("貴社", "応募者"):
+            if ng in n.get("label", ""):
+                issues.append(f"面接語彙 label（{ng}→志望企業/自分に）: 「{n.get('label')}」")
     if not (NODE_RANGE[0] <= len(nodes) <= NODE_RANGE[1]):
         issues.append(f"ノード数 {len(nodes)} が目安 {NODE_RANGE} の外")
 
