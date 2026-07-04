@@ -26,6 +26,7 @@ image = (
         "peft==0.13.2",
         "datasets==3.1.0",
         "accelerate==1.1.1",
+        "wandb==0.18.7",
     )
     .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
 )
@@ -38,12 +39,20 @@ hf_cache = modal.Volume.from_name("hf-cache", create_if_missing=True)
     image=image, gpu="A10G", timeout=7200,
     volumes={"/out": vol, "/root/.cache/huggingface": hf_cache},
 )
-def train(examples: list[dict], base_model: str, epochs: int, run_name: str) -> dict:
+def train(examples: list[dict], base_model: str, epochs: int, run_name: str,
+          wandb_key: str = "") -> dict:
+    import os
+
     import torch
     from datasets import Dataset
     from peft import LoraConfig
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from trl import SFTConfig, SFTTrainer
+
+    use_wandb = bool(wandb_key)
+    if use_wandb:
+        os.environ["WANDB_API_KEY"] = wandb_key
+        os.environ["WANDB_PROJECT"] = "audienceroom-lora"
 
     ds = Dataset.from_list([{"messages": e["messages"]} for e in examples])
     tok = AutoTokenizer.from_pretrained(base_model)
@@ -69,7 +78,8 @@ def train(examples: list[dict], base_model: str, epochs: int, run_name: str) -> 
         gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False},
         save_strategy="no",
-        report_to=[],
+        report_to=["wandb"] if use_wandb else [],
+        run_name=run_name,
     )
     trainer = SFTTrainer(
         model=model, tokenizer=tok, train_dataset=ds, peft_config=peft_cfg, args=cfg
@@ -104,7 +114,9 @@ def train(examples: list[dict], base_model: str, epochs: int, run_name: str) -> 
 @app.local_entrypoint()
 def main(data: str = "data/sft_train.jsonl", epochs: int = 4,
          base_model: str = "Qwen/Qwen2.5-3B-Instruct", run_name: str = "smoke30"):
+    import os
     examples = [json.loads(l) for l in open(data, encoding="utf-8") if l.strip()]
-    print(f"学習データ {len(examples)} 件 / base={base_model} / epochs={epochs}")
-    res = train.remote(examples, base_model, epochs, run_name)
+    wandb_key = os.environ.get("WANDB_API_KEY", "")
+    print(f"学習データ {len(examples)} 件 / base={base_model} / epochs={epochs} / wandb={'ON' if wandb_key else 'OFF'}")
+    res = train.remote(examples, base_model, epochs, run_name, wandb_key)
     print(json.dumps(res, ensure_ascii=False, indent=2))

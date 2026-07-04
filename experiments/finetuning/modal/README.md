@@ -32,6 +32,22 @@ docker run --rm -v "$(pwd)/experiments:/experiments" \
 - GPU は A10G 1枚。スモーク（30件×4epoch）は **10〜20分・$0.5 以下**の見込み
 - 出力: LoRA アダプタが Modal Volume `audienceroom-lora` に保存される
 
+## W&B（学習runの記録・任意）
+
+1. https://wandb.ai でアカウント作成 → https://wandb.ai/authorize で API キー取得
+2. `modal/.env` に追記: `WANDB_API_KEY=xxxx`
+3. 実行コマンドに `--env-file modal/.env` を足す（`~/.modal.toml` マウントと併用可）:
+
+```bash
+docker run --rm -v "$(pwd)/experiments:/experiments" \
+  -v ~/.modal.toml:/root/.modal.toml:ro --env-file modal/.env \
+  -w /experiments/finetuning python:3.11-slim \
+  bash -c "pip install -q modal && modal run modal/train_lora.py"
+```
+
+キー未設定なら自動で OFF（ログ無しで学習は普通に動く）。プロジェクト名は `audienceroom-lora`。
+役割分担: **Langfuse=推論トレース / W&B=学習run**。
+
 ## 出力の見方
 
 実行終了時に JSON が出る:
