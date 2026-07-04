@@ -3,11 +3,12 @@
 **Modal** = Python 関数にデコレータを付けるとクラウド GPU で実行してくれるサービス。
 学習（train_lora.py）も、後の配信も同じ仕組みで動かす。
 
-## 初回セットアップ（人間の作業・5分）
+## 初回セットアップ
 
-1. https://modal.com でアカウント作成（GitHub ログイン可。無料枠 $30/月）
-2. ダッシュボード → **Settings → API Tokens → New Token** でトークンを作成
-3. このフォルダに `.env` を作る（**gitignore 済み**・コミットしない）:
+**既に `~/.modal.toml` がある場合（`modal token set` 済み）→ 何もしなくてよい**（下の実行コマンドがマウントする）。
+
+無い場合は https://modal.com でアカウント作成 → Settings → API Tokens → New Token →
+このフォルダの `.env`（gitignore 済み）に:
 
 ```
 MODAL_TOKEN_ID=ak-xxxxxxxx
@@ -17,9 +18,13 @@ MODAL_TOKEN_SECRET=as-xxxxxxxx
 ## スモークテストの実行（リポジトリ root から）
 
 ```bash
-docker run --rm -it -v "$(pwd)/experiments:/experiments" \
-  -w /experiments/finetuning --env-file modal/.env python:3.11-slim \
+# ~/.modal.toml を使う場合
+docker run --rm -v "$(pwd)/experiments:/experiments" \
+  -v ~/.modal.toml:/root/.modal.toml:ro \
+  -w /experiments/finetuning python:3.11-slim \
   bash -c "pip install -q modal && modal run modal/train_lora.py"
+
+# .env を使う場合は -v ~/.modal.toml... の代わりに --env-file modal/.env
 ```
 
 - ローカル Python は汚さない（使い捨てコンテナ内で modal CLI を実行）
