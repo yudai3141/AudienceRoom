@@ -121,10 +121,12 @@ async function init() {
 }
 
 let REVIEWED = [];
+let currentSummary = "";
 function loadReviewed() {
   const r = REVIEWED[Number(document.getElementById("reviewedList").value)];
   if (!r) return;
   current = { session_id: null, topic: r.topic, turns: r.conversation };
+  currentSummary = (r.graph && r.graph.current_summary) || "";
   showTranscript();
   renderGraph(r.graph);
   setStatus(`Claude検証済み ${r.id} を読み込み。修正して「gold保存」で確定`);
@@ -239,6 +241,7 @@ async function draft() {
     if (!res.ok) { setStatus("③ APIエラー HTTP " + res.status); return; }
     graph = await res.json();
   } catch (e) { setStatus("③ 通信失敗: " + e); return; }
+  currentSummary = graph.current_summary || "";
   setStatus("④ 応答受信 nodes=" + (graph.nodes || []).length + " → 描画中");
   try {
     renderGraph(graph);
@@ -329,7 +332,7 @@ function collectGraph() {
   const edges = cy.edges().map(e => ({
     source: idToLabel[e.data("source")], target: idToLabel[e.data("target")], relation_type: e.data("relation_type"),
   }));
-  return { nodes, edges };
+  return { nodes, edges, current_summary: currentSummary };
 }
 
 async function save() {
