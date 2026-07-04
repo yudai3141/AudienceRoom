@@ -1,4 +1,6 @@
-# チーム開発経験ドメイン オントロジー v0
+# チーム開発経験ドメイン オントロジー v0.1
+
+> v0.1: research v0.1 と流儀を統一（ハブ必須・到達性・「障害 leads_to 行動」の向き）
 
 学習ドメイン「チーム開発経験」の gold を作るための定義書。行動面接の標準フレーム
 **STAR(L)**（Situation / Task / Action / Result / Learning）を概念グラフに翻案。
@@ -29,22 +31,29 @@
 
 ## 粒度規則
 
+- **中心ノード（プロジェクト/経験の場 = context）を必ず立て、ハブにする**。label は会話の呼び方に忠実に。
+- **全ノードはハブから到達可能にする**（part_of は子→親向きのため到達性判定では無向扱い）。
+  経験中に生じた障害・対立は `ハブ --causes--> problem` で派生させる。
 - 束ねノード禁止（研究ドメインと同じ）。行動が複数あれば行動ごとに分ける。
 - 技術名の羅列は主要な1〜2個だけノード化。
-- 目安 8〜15 ノード。「面接官が深掘りの起点にできる単位か」で判断。
+- 目安 8〜15 ノード（密な会話は〜20 まで許容）。「面接官が深掘りの起点にできる単位か」で判断。
 
 ## 典型関係パターン
 
 ```
-component(役割) --part_of-->  context(チーム・状況)
+component(役割) --part_of-->  context(ハブ)
 goal            --part_of-->  context
-method(行動)    --addresses--> problem(障害)
+context(ハブ)   --causes-->   problem(障害・対立)   （経験の中で困難が生じた）
+context(ハブ)   --uses-->     method(調査等の起点)
+problem(障害)   --leads_to--> method(行動)          （困難がその行動を促した）★v0.1
 method          --leads_to-->  result(成果)
 result          --leads_to-->  result(学び)
-X               --causes-->    problem      （対立・困難の原因）
 concept(技術)   … method から uses で参照
 矛盾（例:「主導した」vs「チームで決めた」）は contradicts で保持
 ```
+
+※ v0.1: research と同じく「method addresses problem（解決の向き）」はやめ、
+**「problem leads_to method（動機づけの向き）」に統一**。同一ペアに両方向は張らない。
 
 ## coverage 判定
 
