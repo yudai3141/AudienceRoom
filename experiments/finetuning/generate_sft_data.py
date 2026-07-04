@@ -78,10 +78,21 @@ def _conv_text(conv: list[dict]) -> str:
     return "\n".join(f"{label.get(c.get('speaker'), c.get('speaker'))}: {c.get('text')}" for c in conv)
 
 
+# トピック → オントロジー族（few-shot の同族優先選択に使う）
+FAMILY = {
+    "研究内容": "research", "卒業制作": "research",
+    "チーム開発経験": "star", "周りを巻き込んだ経験": "star",
+    "リーダーシップ経験": "star", "困難を乗り越えた経験": "star",
+    "インターン経験": "star", "ボランティア経験": "star",
+    "学生時代に力を入れたこと": "star",
+}
+
+
 def select_fewshot(examples: list[dict], topic: str, k: int = 3) -> list[dict]:
-    """同ドメイン優先で最大 k 例を選ぶ（同topic 2 + 他 1 が基本形）。"""
-    same = [e for e in examples if e.get("topic") == topic]
-    other = [e for e in examples if e.get("topic") != topic]
+    """同族優先で最大 k 例を選ぶ（同族 2 + 他族 1 が基本形）。"""
+    fam = FAMILY.get(topic)
+    same = [e for e in examples if FAMILY.get(e.get("topic")) == fam and fam is not None]
+    other = [e for e in examples if e not in same]
     return (same[:2] + other)[:k]
 
 
