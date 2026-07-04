@@ -73,7 +73,34 @@ def build_conversation_prompt(topic: str, persona: str, turns: int, quality: str
     ]
 
 
-def build_extraction_messages(topic: str, conversation_text: str) -> tuple[str, str]:
+def _conv_text(conv: list[dict]) -> str:
+    label = {"interviewer": "面接官", "applicant": "応募者"}
+    return "\n".join(f"{label.get(c.get('speaker'), c.get('speaker'))}: {c.get('text')}" for c in conv)
+
+
+def select_fewshot(examples: list[dict], topic: str, k: int = 3) -> list[dict]:
+    """同ドメイン優先で最大 k 例を選ぶ（同topic 2 + 他 1 が基本形）。"""
+    same = [e for e in examples if e.get("topic") == topic]
+    other = [e for e in examples if e.get("topic") != topic]
+    return (same[:2] + other)[:k]
+
+
+def fewshot_block(examples: list[dict]) -> str:
+    """人間検証済み gold を few-shot としてプロンプトに埋め込む。"""
+    if not examples:
+        return ""
+    parts = ["\n# 良い抽出の例（この粒度・型付け・coverage 判断・関係の張り方を踏襲すること）"]
+    for i, ex in enumerate(examples, 1):
+        parts.append(f"\n## 例{i}: トピック「{ex['topic']}」の会話")
+        parts.append(_conv_text(ex["conversation"]))
+        parts.append(f"\n## 例{i} の正しい出力")
+        parts.append(json.dumps(ex["graph"], ensure_ascii=False))
+    return "\n".join(parts)
+
+
+def build_extraction_messages(
+    topic: str, conversation_text: str, examples: list[dict] | None = None
+) -> tuple[str, str]:
     """型を固定した抽出プロンプト。teacher 呼び出しと SFT の入力の両方で使う。"""
     system = f"""あなたは面接の記録係です。会話からトピック「{topic}」の概念グラフを抽出します。
 
@@ -97,6 +124,7 @@ def build_extraction_messages(topic: str, conversation_text: str) -> tuple[str, 
 {{"nodes": [{{"label": "...", "node_type": "...", "detail": "...", "coverage": "..."}}],
  "edges": [{{"source": "...", "target": "...", "relation_type": "..."}}],
  "current_summary": "..."}}"""
+    system = system + fewshot_block(examples or [])
     user = f"# 面接会話\n{conversation_text}\n\nこの会話から概念グラフを JSON で抽出してください。"
     return system, user
 
@@ -106,7 +134,7 @@ def _conversation_to_text(conv: list[dict]) -> str:
     return "\n".join(f"{label.get(c.get('speaker'), c.get('speaker'))}: {c.get('text')}" for c in conv)
 
 
-async def generate_one(provider, topic: str, persona: str, turns: int, quality: str) -> dict | None:
+async def generate_one(provider, topic: str, persona: str, turns: int, quality: str, examples: list[dict] | None = None) -> dict | None:
     # 1) 会話生成
     conv_data = await provider.generate_json(
         build_conversation_prompt(topic, persona, turns, quality), temperature=0.9
@@ -117,7 +145,7 @@ async def generate_one(provider, topic: str, persona: str, turns: int, quality: 
     conv_text = _conversation_to_text(conversation)
 
     # 2) 型固定で抽出（＝正解）
-    system, user = build_extraction_messages(topic, conv_text)
+    system, user = build_extraction_messages(topic, conv_text, select_fewshot(examples or [], topic))
     graph = await provider.generate_json(
         [LLMMessage(role="system", content=system), LLMMessage(role="user", content=user)],
         temperature=0.2,
@@ -138,8 +166,12 @@ async def generate_one(provider, topic: str, persona: str, turns: int, quality: 
     }
 
 
-async def main(count: int, topics: list[str], fmt: str, out: Path, prefix: str) -> None:
+async def main(count: int, topics: list[str], fmt: str, out: Path, prefix: str, fewshot: str) -> None:
     provider = get_llm_provider()
+    examples: list[dict] = []
+    if fewshot:
+        examples = [json.loads(l) for l in open(fewshot, encoding="utf-8") if l.strip()]
+        print(f"few-shot 例: {len(examples)} 件をロード（各生成で同ドメイン優先の3件を注入）")
     out.parent.mkdir(parents=True, exist_ok=True)
     written = 0
     with out.open("w", encoding="utf-8") as fout:
@@ -149,7 +181,7 @@ async def main(count: int, topics: list[str], fmt: str, out: Path, prefix: str) 
             quality = QUALITIES[i % len(QUALITIES)]
             turns = 3
             try:
-                ex = await generate_one(provider, topic, persona, turns, quality)
+                ex = await generate_one(provider, topic, persona, turns, quality, examples)
             except Exception as e:
                 print(f"  [{i + 1}/{count}] 失敗 {topic}: {e}")
                 continue
@@ -181,6 +213,7 @@ if __name__ == "__main__":
     parser.add_argument("--format", dest="fmt", choices=["sft", "pending"], default="sft")
     parser.add_argument("--out", type=str, default=str(OUTPUT_PATH))
     parser.add_argument("--prefix", type=str, default="pending", help="pending 形式の id プレフィックス")
+    parser.add_argument("--fewshot", type=str, default="", help="few-shot 例 jsonl（人間検証済み gold）")
     args = parser.parse_args()
     topic_list = [t.strip() for t in args.topics.split(",") if t.strip()] or TOPICS
-    asyncio.run(main(args.count, topic_list, args.fmt, Path(args.out), args.prefix))
+    asyncio.run(main(args.count, topic_list, args.fmt, Path(args.out), args.prefix, args.fewshot))
