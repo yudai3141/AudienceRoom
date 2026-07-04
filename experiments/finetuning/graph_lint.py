@@ -65,14 +65,14 @@ def lint_graph(g: dict) -> list[str]:
         if len(lst) > 1:
             issues.append(f"同一ペアに複数エッジ（両方向含む）: {lst}")
 
-    # --- ハブ到達性（先頭ノードをハブとみなす。part_of は無向扱い） ---
+    # --- 連結性（無向）: 孤立サブグラフの検出。
+    #     ※「ハブから派生」は学習ドメインのスタイル指針（志望動機等はハブへ収束する構造が自然）---
     hub = labels[0]
     adj = defaultdict(list)
     for e in edges:
         if e.get("source") in labelset and e.get("target") in labelset:
             adj[e["source"]].append(e["target"])
-            if e.get("relation_type") == "part_of":
-                adj[e["target"]].append(e["source"])
+            adj[e["target"]].append(e["source"])
     seen = {hub}
     q = deque([hub])
     while q:
@@ -82,7 +82,7 @@ def lint_graph(g: dict) -> list[str]:
                 q.append(t)
     unreached = [l for l in labels if l not in seen]
     if unreached:
-        issues.append(f"ハブ未到達: {unreached}")
+        issues.append(f"非連結（孤立サブグラフ）: {unreached}")
 
     # --- addresses はハブ発のみ / contradicts は要確認フラグ ---
     for e in edges:

@@ -83,7 +83,7 @@ def train(examples: list[dict], base_model: str, epochs: int, run_name: str) -> 
     prompt = tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
     inputs = tok(prompt, return_tensors="pt").to(model.device)
     with torch.no_grad():
-        out = model.generate(**inputs, max_new_tokens=1500, do_sample=False,
+        out = model.generate(**inputs, max_new_tokens=3000, do_sample=False,
                              pad_token_id=tok.eos_token_id)
     gen = tok.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
     parse_ok, n_nodes = False, 0
